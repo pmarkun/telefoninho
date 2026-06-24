@@ -1,0 +1,32 @@
+{
+  "name": "@telefoninho/api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --dts --out-dir dist",
+    "start": "node dist/index.js",
+    "lint": "node -e \"console.log('lint not configured yet for @telefoninho/api')\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push --force",
+    "seed": "tsx scripts/seed.ts",
+    "generate:asterisk": "tsx scripts/generate-asterisk.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.7.0",
+    "drizzle-kit": "^0.31.10",
+    "tsup": "^8.2.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
