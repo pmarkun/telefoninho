@@ -31,7 +31,15 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.15"
     }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
 }
+
+val linphoneVersion = "5.4.+"
 
 dependencies {
     implementation("androidx.activity:activity-compose:1.9.0")
@@ -40,4 +48,5 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+    implementation("org.linphone.no-video:linphone-sdk-android:$linphoneVersion")
 }

@@ -11,6 +11,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            name = "linphone.org"
+            url = uri("https://download.linphone.org/maven_repository")
+        }
     }
 }
 

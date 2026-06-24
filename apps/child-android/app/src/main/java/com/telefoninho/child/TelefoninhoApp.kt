@@ -93,7 +93,6 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
 
                         is Screen.Calling -> CallingScreen(
                             contact = current.contact,
-                            onConnected = { viewModel.onCallConnected(current.contact) },
                             onHangup = { viewModel.hangup() },
                         )
 
@@ -104,7 +103,7 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
 
                         is Screen.Incoming -> IncomingCallScreen(
                             contact = current.contact,
-                            onAccept = { viewModel.acceptCall(current.contact) },
+                            onAccept = { viewModel.acceptCall() },
                             onDecline = { viewModel.declineCall() },
                         )
                     }
@@ -168,11 +167,7 @@ private fun HomeScreen(contacts: List<ContactInfo>, onCall: (ContactInfo) -> Uni
 }
 
 @Composable
-private fun CallingScreen(contact: ContactInfo, onConnected: () -> Unit, onHangup: () -> Unit) {
-    LaunchedEffect(contact) {
-        delay(1800)
-        onConnected()
-    }
+private fun CallingScreen(contact: ContactInfo, onHangup: () -> Unit) {
     TelefoninhoFrame(status = "chamando", statusKind = CallStatus.Calling) {
         BigContactHero(contact = contact, label = "LIGANDO PARA")
         Spacer(modifier = Modifier.height(18.dp))

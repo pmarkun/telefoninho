@@ -8,7 +8,10 @@ import com.telefoninho.child.data.AppConfig
 import com.telefoninho.child.data.ConfigStore
 import com.telefoninho.child.data.ContactInfo
 import com.telefoninho.child.data.Screen
+import com.telefoninho.child.data.SipCredentials
 import com.telefoninho.child.data.UiState
+import com.telefoninho.child.voip.VoipListener
+import com.telefoninho.child.voip.VoipManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +21,7 @@ import kotlinx.coroutines.launch
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val configStore = ConfigStore(application)
     private val apiClient = ApiClient()
+    val voipManager = VoipManager(application)
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -31,7 +35,47 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _pairingLoading = MutableStateFlow(false)
     val pairingLoading: StateFlow<Boolean> = _pairingLoading.asStateFlow()
 
+    private var sipCredentials: SipCredentials? = null
+
+    private val voipListener = object : VoipListener {
+        override fun onRegistered() {}
+
+        override fun onUnregistered() {}
+
+        override fun onRegistrationFailed(reason: String) {
+            _error.value = "Falha ao registrar SIP: $reason"
+        }
+
+        override fun onCallReceived(callerExtension: String) {
+            val contacts = (_uiState.value as? UiState.Ready)?.contacts ?: return
+            val caller = contacts.find { it.sipExtension == callerExtension }
+            val contact = caller ?: ContactInfo(
+                memberId = "", displayName = callerExtension,
+                avatarKey = "star_pixel_01", colorKey = "green",
+                sipExtension = callerExtension, enabled = true,
+            )
+            _screen.value = Screen.Incoming(contact)
+        }
+
+        override fun onCallConnected() {
+            val current = _screen.value
+            if (current is Screen.Calling) {
+                _screen.value = Screen.InCall(current.contact)
+            }
+        }
+
+        override fun onCallEnded() {
+            _screen.value = Screen.Home
+        }
+
+        override fun onCallFailed(reason: String) {
+            _error.value = "Chamada falhou: $reason"
+            _screen.value = Screen.Home
+        }
+    }
+
     init {
+        voipManager.listener = voipListener
         checkPaired()
     }
 
@@ -41,8 +85,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (isPaired) {
                 val config = configStore.loadConfig()
                 if (config != null) {
+                    sipCredentials = config.sip
                     _uiState.value = UiState.Ready(config.profile, config.contacts)
                     _screen.value = Screen.Home
+                    voipManager.start(config.sip)
                 } else {
                     _uiState.value = UiState.Pairing
                 }
@@ -71,9 +117,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
 
                 configStore.saveConfig(config)
+                sipCredentials = config.sip
 
                 _uiState.value = UiState.Ready(config.profile, config.contacts)
                 _screen.value = Screen.Home
+
+                voipManager.start(config.sip)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Erro de conexão"
             } finally {
@@ -84,29 +133,28 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun callContact(contact: ContactInfo) {
         _screen.value = Screen.Calling(contact)
+        voipManager.call(contact.sipExtension)
     }
 
-    fun onCallConnected(contact: ContactInfo) {
-        _screen.value = Screen.InCall(contact)
-    }
-
-    fun hangup() {
-        _screen.value = Screen.Home
-    }
-
-    fun incomingCall(contact: ContactInfo) {
-        _screen.value = Screen.Incoming(contact)
-    }
-
-    fun acceptCall(contact: ContactInfo) {
-        _screen.value = Screen.InCall(contact)
+    fun acceptCall() {
+        voipManager.acceptCall()
     }
 
     fun declineCall() {
+        voipManager.declineCall()
         _screen.value = Screen.Home
+    }
+
+    fun hangup() {
+        voipManager.hangup()
     }
 
     fun clearError() {
         _error.value = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        voipManager.stop()
     }
 }
