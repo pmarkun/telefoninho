@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useNotify } from "../notify-context";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
@@ -18,6 +19,7 @@ interface Member {
 
 export default function MembersPage() {
   const router = useRouter();
+  const { notify } = useNotify();
   const [token, setToken] = useState("");
   const [parentName, setParentName] = useState("");
   const [familyId, setFamilyId] = useState("");
@@ -41,41 +43,55 @@ export default function MembersPage() {
     const h = { Authorization: `Bearer ${t}` };
     try {
       const familiesRes = await fetch(`${API}/families`, { headers: h });
+      if (!familiesRes.ok) { notify("Erro ao carregar famílias", "error"); return; }
       const families = await familiesRes.json();
       if (families.length > 0) {
         const fid = families[0].id;
         setFamilyId(fid);
         const membersRes = await fetch(`${API}/families/${fid}/members`, { headers: h });
+        if (!membersRes.ok) { notify("Erro ao carregar membros", "error"); return; }
         setMembers(await membersRes.json());
       }
-    } catch {}
+    } catch {
+      notify("Erro de conexão", "error");
+    }
   }
 
   async function createMember() {
-    if (!formName.trim()) return;
+    if (!formName.trim()) { notify("Informe um nome", "error"); return; }
     try {
       const res = await fetch(`${API}/families/${familyId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ kind: formKind, displayName: formName }),
       });
-      if (res.ok) {
-        setShowForm(false);
-        setFormName("");
-        loadData(token);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        notify(err.error || "Erro ao criar membro", "error");
+        return;
       }
-    } catch {}
+      setShowForm(false);
+      setFormName("");
+      notify("Membro criado com sucesso", "success");
+      loadData(token);
+    } catch {
+      notify("Erro de conexão ao criar membro", "error");
+    }
   }
 
   async function toggleActive(member: Member) {
     try {
-      await fetch(`${API}/members/${member.id}`, {
+      const res = await fetch(`${API}/members/${member.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ active: !member.active }),
       });
+      if (!res.ok) { notify("Erro ao alterar status", "error"); return; }
+      notify(member.active ? "Membro desativado" : "Membro ativado", "success");
       loadData(token);
-    } catch {}
+    } catch {
+      notify("Erro de conexão", "error");
+    }
   }
 
   async function generatePairing(member: Member) {
@@ -84,23 +100,29 @@ export default function MembersPage() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setPairingCode(data.code);
-        setPairingExpires(new Date(data.expiresAt).toLocaleString());
-      }
-    } catch {}
+      if (!res.ok) { notify("Erro ao gerar código", "error"); return; }
+      const data = await res.json();
+      setPairingCode(data.code);
+      setPairingExpires(new Date(data.expiresAt).toLocaleString());
+      notify("Código de pareamento gerado", "success");
+    } catch {
+      notify("Erro de conexão ao gerar código", "error");
+    }
   }
 
   async function deleteMember(member: Member) {
     if (!confirm(`Remover ${member.displayName}?`)) return;
     try {
-      await fetch(`${API}/members/${member.id}`, {
+      const res = await fetch(`${API}/members/${member.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) { notify("Erro ao remover membro", "error"); return; }
+      notify(`Membro ${member.displayName} removido`, "success");
       loadData(token);
-    } catch {}
+    } catch {
+      notify("Erro de conexão ao remover membro", "error");
+    }
   }
 
   return (
@@ -109,6 +131,8 @@ export default function MembersPage() {
         <a href="/dashboard" className="brand">Telefoninho</a>
         <a href="/dashboard">Dashboard</a>
         <a href="/members">Membros</a>
+        <a href="/permissions">Permissões</a>
+        <a href="/call-logs">Chamadas</a>
         <span className="spacer" />
         <span className="user">{parentName}</span>
         <a href="/login" onClick={(e) => { e.preventDefault(); localStorage.clear(); router.push("/login"); }}>Sair</a>

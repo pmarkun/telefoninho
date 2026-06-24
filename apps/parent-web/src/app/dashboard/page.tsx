@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useNotify } from "../notify-context";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
@@ -15,6 +16,7 @@ interface Member {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { notify } = useNotify();
   const [token, setToken] = useState("");
   const [parentName, setParentName] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
@@ -31,32 +33,33 @@ export default function DashboardPage() {
     const h = { Authorization: `Bearer ${t}` };
 
     fetch(`${API}/families`, { headers: h })
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: { id: string; name: string }[]) => {
         if (data.length > 0) {
           setFamilyId(data[0].id);
-          fetch(`${API}/families/${data[0].id}/members`, { headers: h })
-            .then((r2) => r2.json())
+          return fetch(`${API}/families/${data[0].id}/members`, { headers: h })
+            .then((r2) => { if (!r2.ok) throw new Error(); return r2.json(); })
             .then(setMembers);
         }
       })
-      .catch(() => {});
+      .catch(() => notify("Erro ao carregar membros", "error"));
 
     fetch(`${API}/admin/stats`, { headers: h })
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then(setStats)
-      .catch(() => {});
-  }, [router]);
+      .catch(() => notify("Erro ao carregar estatísticas", "error"));
+  }, [router, notify]);
 
   async function regenerateAsterisk() {
     try {
       const res = await fetch(`${API}/families/${familyId}/members`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      alert(`Config recarregada para ${data.length} membros. Execute pnpm generate:asterisk no servidor.`);
+      notify(`Config recarregada para ${data.length} membros. Execute pnpm generate:asterisk no servidor.`, "success");
     } catch {
-      alert("Erro ao recarregar");
+      notify("Erro ao recarregar config Asterisk", "error");
     }
   }
 
@@ -66,6 +69,8 @@ export default function DashboardPage() {
         <a href="/dashboard" className="brand">Telefoninho</a>
         <a href="/dashboard">Dashboard</a>
         <a href="/members">Membros</a>
+        <a href="/permissions">Permissões</a>
+        <a href="/call-logs">Chamadas</a>
         <span className="spacer" />
         <span className="user">{parentName}</span>
         <a href="/login" onClick={(e) => { e.preventDefault(); localStorage.clear(); router.push("/login"); }}>Sair</a>

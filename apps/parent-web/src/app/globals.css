@@ -94,6 +94,70 @@ th { font-weight: 600; }
 
 .status-ok { color: var(--accent); font-weight: 500; }
 
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  border: 2px solid var(--fg);
+  background: var(--panel);
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: toast-in 0.3s ease, toast-out 0.3s ease 3.7s;
+  max-width: 400px;
+}
+
+.toast-success { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+.toast-error { border-color: var(--danger); background: #fce4e4; color: var(--danger); }
+.toast-info { border-color: var(--border); background: var(--panel); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(100%); }
+}
+
+.table-wrapper { overflow-x: auto; }
+
+.permission-matrix { font-size: 0.9rem; }
+.permission-matrix th,
+.permission-matrix td { padding: 0.4rem 0.5rem; text-align: center; white-space: nowrap; }
+.permission-matrix .matrix-row-label { text-align: left; display: flex; gap: 0.5rem; align-items: center; }
+.permission-matrix .matrix-col { writing-mode: sideways-lr; text-orientation: mixed; }
+.permission-matrix .matrix-cell { min-width: 2.5rem; }
+.permission-matrix .matrix-diagonal { color: var(--border); font-weight: 700; }
+.permission-matrix .matrix-checkbox-label { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.permission-matrix .matrix-checkbox-label input { display: none; }
+.permission-matrix .matrix-checkmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.permission-matrix .matrix-checkmark.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.permission-matrix .matrix-checkmark.off { color: var(--text-muted); }
+.permission-matrix .inactive-member { opacity: 0.5; }
+.permission-matrix tbody tr:hover { background: var(--accent-light); }
+
 @media (max-width: 768px) {
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
 }

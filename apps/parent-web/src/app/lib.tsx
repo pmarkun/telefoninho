@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { useNotify } from "./notify-context";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
@@ -26,6 +27,7 @@ export function useApi() {
   const [family, setFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const { notify } = useNotify();
   const router = useRouter();
 
   useEffect(() => {
@@ -41,16 +43,16 @@ export function useApi() {
     fetch(`${API}/families`, {
       headers: { Authorization: `Bearer ${t}` },
     })
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setFamily(data[0]);
         }
       })
-      .catch(() => {});
+      .catch(() => notify("Erro ao carregar dados da família", "error"));
 
     setLoading(false);
-  }, [router]);
+  }, [router, notify]);
 
   const headers = (): Record<string, string> => ({
     "Content-Type": "application/json",
@@ -76,6 +78,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <a href="/dashboard" className="brand">Telefoninho</a>
         <a href="/dashboard">Dashboard</a>
         <a href="/members">Membros</a>
+        <a href="/permissions">Permissões</a>
+        <a href="/call-logs">Chamadas</a>
         <span className="spacer" />
         <span className="user">{parentName}</span>
         <a
