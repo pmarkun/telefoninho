@@ -1,0 +1,52 @@
+services:
+  asterisk:
+    build: ./infra/asterisk
+    container_name: telefoninho-asterisk
+    ports:
+      - "5060:5060/udp"
+      - "10000-10100:10000-10100/udp"
+    volumes:
+      - ./infra/asterisk/config:/etc/asterisk
+    environment:
+      - ASTERISK_UID=1000
+      - ASTERISK_GID=1000
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /usr/sbin/asterisk"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    container_name: telefoninho-api
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=file:/app/services/api/dev.db
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: sh -c "pnpm install && pnpm --filter @telefoninho/api dev"
+    depends_on:
+      - asterisk
+
+  parent-web:
+    build:
+      context: .
+      dockerfile: apps/parent-web/Dockerfile
+    container_name: telefoninho-parent-web
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: sh -c "pnpm install && pnpm --filter @telefoninho/parent-web dev"
+    depends_on:
+      - api
+

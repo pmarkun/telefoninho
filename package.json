@@ -1,0 +1,20 @@
+{
+  "name": "telefoninho",
+  "private": true,
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @telefoninho/api dev",
+    "dev:web": "pnpm --filter @telefoninho/parent-web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @telefoninho/api db:migrate",
+    "seed": "pnpm --filter @telefoninho/api seed",
+    "infra:generate-asterisk": "pnpm --filter @telefoninho/api generate:asterisk"
+  },
+  "devDependencies": {
+    "pnpm": "^10.11.0",
+    "typescript": "^5.7.0"
+  }
+}

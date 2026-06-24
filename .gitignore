@@ -1,0 +1,17 @@
+/.direnv
+/result
+/result-*
+.env
+.opencode/
+services/api/dev.db
+services/api/dist
+services/api/node_modules
+apps/parent-web/.next
+apps/parent-web/node_modules
+apps/parent-web/node_modules
+apps/child-android/.gradle
+apps/child-android/build
+apps/child-android/app/build
+infra/asterisk/config/pjsip.generated.conf
+infra/asterisk/config/extensions.generated.conf
+
