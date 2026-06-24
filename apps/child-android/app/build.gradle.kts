@@ -38,5 +38,6 @@ dependencies {
     implementation("androidx.compose.ui:ui:1.7.0")
     implementation("androidx.compose.material3:material3:1.3.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 }
