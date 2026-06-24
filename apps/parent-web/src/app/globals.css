@@ -1,0 +1,99 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f1e5;
+  --fg: #222;
+  --panel: #fff;
+  --accent: #2f7d32;
+  --accent-light: #e8f5e8;
+  --border: #ccc;
+  --danger: #c62828;
+  --text-muted: #666;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.5rem 1.25rem;
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--fg);
+  cursor: pointer;
+}
+button:hover { background: var(--accent-light); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary:hover { opacity: 0.9; }
+button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+input, select {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.5rem;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--fg);
+}
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); }
+th { font-weight: 600; }
+
+.card {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.container { max-width: 960px; margin: 0 auto; padding: 1rem; }
+
+.nav {
+  background: var(--fg);
+  padding: 0.75rem 1rem;
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.nav a { color: #fff; font-weight: 500; }
+.nav .brand { font-weight: 700; font-size: 1.1rem; }
+.nav .spacer { flex: 1; }
+.nav .user { color: #aaa; font-size: 0.9rem; }
+
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; font-weight: 500; margin-bottom: 0.25rem; }
+.form-group input, .form-group select { width: 100%; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.badge.active { background: var(--accent-light); color: var(--accent); }
+.badge.inactive { background: #fce4e4; color: var(--danger); }
+
+.status-ok { color: var(--accent); font-weight: 500; }
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+}

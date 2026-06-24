@@ -1,0 +1,23 @@
+{
+  "name": "@telefoninho/parent-web",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "node -e \"console.log('lint not configured yet for @telefoninho/parent-web')\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.7.0",
+    "@types/react": "^18.3.12",
+    "tailwindcss": "^3.4.10"
+  }
+}
