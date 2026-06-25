@@ -7,12 +7,24 @@ android {
     namespace = "com.telefoninho.child"
     compileSdk = 35
 
+    val envFile = file("../../../.env")
+    val apiBaseUrl = if (envFile.exists()) {
+        envFile.readLines()
+            .firstOrNull { it.startsWith("ANDROID_API_BASE_URL=") }
+            ?.removePrefix("ANDROID_API_BASE_URL=")
+            ?.trim()
+            ?: "http://10.0.2.2:3001"
+    } else {
+        "http://10.0.2.2:3001"
+    }
+
     defaultConfig {
         applicationId = "com.telefoninho.child"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     compileOptions {
@@ -26,6 +38,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -49,4 +62,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.linphone.no-video:linphone-sdk-android:$linphoneVersion")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }

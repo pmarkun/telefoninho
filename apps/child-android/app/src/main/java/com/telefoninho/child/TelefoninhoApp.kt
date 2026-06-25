@@ -41,6 +41,7 @@ import com.telefoninho.child.ui.ContactGrid
 import com.telefoninho.child.ui.PixelButton
 import com.telefoninho.child.ui.PixelCard
 import com.telefoninho.child.ui.PixelClock
+import com.telefoninho.child.ui.PixelTextInput
 import com.telefoninho.child.ui.PixelTheme
 import com.telefoninho.child.ui.PixelTitle
 import com.telefoninho.child.ui.TelefoninhoFrame
@@ -53,9 +54,24 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
     val screen by viewModel.screen.collectAsState()
     val error by viewModel.error.collectAsState()
     val pairingLoading by viewModel.pairingLoading.collectAsState()
+    val apiBaseUrl by viewModel.apiBaseUrl.collectAsState()
+    var showServerSettings by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = PixelTheme.bg) {
-        when (uiState) {
+        if (showServerSettings) {
+            ServerSettingsScreen(
+                currentUrl = apiBaseUrl,
+                onSave = {
+                    viewModel.saveApiBaseUrl(it)
+                    showServerSettings = false
+                },
+                onReset = {
+                    viewModel.resetApiBaseUrl()
+                    showServerSettings = false
+                },
+                onBack = { showServerSettings = false },
+            )
+        } else when (uiState) {
             UiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
@@ -70,6 +86,7 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                 error = error, loading = pairingLoading,
                 onClaim = { viewModel.claimPairing(it) },
                 onClearError = { viewModel.clearError() },
+                onOpenServerSettings = { showServerSettings = true },
             )
 
             is UiState.Ready -> {
@@ -84,11 +101,13 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             error = error, loading = pairingLoading,
                             onClaim = { viewModel.claimPairing(it) },
                             onClearError = { viewModel.clearError() },
+                            onOpenServerSettings = { showServerSettings = true },
                         )
 
                         is Screen.Home -> HomeScreen(
                             contacts = state.contacts,
                             onCall = { viewModel.callContact(it) },
+                            onOpenServerSettings = { showServerSettings = true },
                         )
 
                         is Screen.Calling -> CallingScreen(
@@ -114,7 +133,13 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
 }
 
 @Composable
-private fun PairingScreen(error: String?, loading: Boolean, onClaim: (String) -> Unit, onClearError: () -> Unit) {
+private fun PairingScreen(
+    error: String?,
+    loading: Boolean,
+    onClaim: (String) -> Unit,
+    onClearError: () -> Unit,
+    onOpenServerSettings: () -> Unit,
+) {
     var code by remember { mutableStateOf("") }
     TelefoninhoFrame(status = "conectar", statusKind = CallStatus.Ready) {
         Spacer(modifier = Modifier.height(18.dp))
@@ -146,11 +171,17 @@ private fun PairingScreen(error: String?, loading: Boolean, onClaim: (String) ->
                 )
             }
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "SERVIDOR", onClick = onOpenServerSettings)
     }
 }
 
 @Composable
-private fun HomeScreen(contacts: List<ContactInfo>, onCall: (ContactInfo) -> Unit) {
+private fun HomeScreen(
+    contacts: List<ContactInfo>,
+    onCall: (ContactInfo) -> Unit,
+    onOpenServerSettings: () -> Unit,
+) {
     TelefoninhoFrame(status = "pronto", statusKind = CallStatus.Ready) {
         PixelTitle(text = "TELEFONINHO")
         Spacer(modifier = Modifier.height(22.dp))
@@ -163,6 +194,67 @@ private fun HomeScreen(contacts: List<ContactInfo>, onCall: (ContactInfo) -> Uni
         } else {
             ContactGrid(contacts = contacts, onCall = onCall)
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "SERVIDOR", onClick = onOpenServerSettings)
+    }
+}
+
+@Composable
+private fun ServerSettingsScreen(
+    currentUrl: String,
+    onSave: (String) -> Unit,
+    onReset: () -> Unit,
+    onBack: () -> Unit,
+) {
+    var value by remember(currentUrl) { mutableStateOf(currentUrl) }
+    val normalized = value.trim().trimEnd('/')
+    val valid = normalized.startsWith("http://") || normalized.startsWith("https://")
+
+    TelefoninhoFrame(status = "config", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "SERVIDOR")
+        Spacer(modifier = Modifier.height(22.dp))
+        PixelCard {
+            Text(
+                text = "ENDERECO DA API",
+                color = PixelTheme.fg,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            PixelTextInput(
+                value = value,
+                onValueChange = { value = it },
+                placeholder = "http://bore.pub:12345",
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "Atual: $currentUrl",
+                color = PixelTheme.fg,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (!valid) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Use http:// ou https://",
+                    color = Color(0xFFC93F3F),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "SALVAR", enabled = valid, onClick = { onSave(normalized) })
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "PADRAO", danger = true, onClick = onReset)
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "VOLTAR", onClick = onBack)
     }
 }
 

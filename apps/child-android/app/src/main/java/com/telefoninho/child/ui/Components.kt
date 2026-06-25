@@ -116,6 +116,36 @@ fun CodeInput(value: String, onValueChange: (String) -> Unit) {
 }
 
 @Composable
+fun PixelTextInput(value: String, onValueChange: (String) -> Unit, placeholder: String) {
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        cursorBrush = SolidColor(PixelTheme.fg),
+        textStyle = TextStyle(
+            color = PixelTheme.fg, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace, textAlign = TextAlign.Start,
+        ),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().height(58.dp)
+            .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
+            .background(Color(0xFFEAF8DD))
+            .padding(horizontal = 12.dp, vertical = 18.dp),
+        decorationBox = { innerTextField ->
+            Box(contentAlignment = Alignment.CenterStart) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = placeholder, color = PixelTheme.fg.copy(alpha = 0.35f),
+                        fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+                innerTextField()
+            }
+        },
+    )
+}
+
+@Composable
 fun PixelAvatar(name: String, color: Color, size: Int) {
     Box(
         modifier = Modifier.size(size.dp)

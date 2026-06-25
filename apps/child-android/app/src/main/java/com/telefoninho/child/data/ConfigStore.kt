@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.telefoninho.child.BuildConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -16,11 +17,16 @@ private val Context.store: DataStore<Preferences> by preferencesDataStore(name =
 
 private const val KEY_CONFIG = "app_config"
 private const val KEY_PAIRED = "is_paired"
+private const val KEY_API_BASE_URL = "api_base_url"
 
 class ConfigStore(private val context: Context) {
 
     val isPaired: Flow<Boolean> = context.store.data.map { prefs ->
         prefs[stringPreferencesKey(KEY_PAIRED)]?.toBoolean() ?: false
+    }
+
+    val apiBaseUrl: Flow<String> = context.store.data.map { prefs ->
+        prefs[stringPreferencesKey(KEY_API_BASE_URL)] ?: BuildConfig.API_BASE_URL
     }
 
     suspend fun saveConfig(config: AppConfig) {
@@ -39,9 +45,24 @@ class ConfigStore(private val context: Context) {
         }
     }
 
+    suspend fun saveApiBaseUrl(value: String) {
+        context.store.edit { prefs ->
+            prefs[stringPreferencesKey(KEY_API_BASE_URL)] = normalizeApiBaseUrl(value)
+        }
+    }
+
+    suspend fun resetApiBaseUrl() {
+        context.store.edit { prefs ->
+            prefs.remove(stringPreferencesKey(KEY_API_BASE_URL))
+        }
+    }
+
     suspend fun clear() {
         context.store.edit { it.clear() }
     }
+
+    private fun normalizeApiBaseUrl(value: String): String =
+        value.trim().trimEnd('/')
 
     private fun encodeConfig(config: AppConfig): String {
         val contacts = JSONArray().apply {

@@ -6,8 +6,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import com.telefoninho.child.BuildConfig
 
-class ApiClient(private val baseUrl: String = "http://10.0.2.2:3001") {
+class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
 
     suspend fun claimPairing(code: String, deviceName: String, deviceId: String): PairingResponse =
         withContext(Dispatchers.IO) {

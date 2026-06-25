@@ -20,7 +20,6 @@ import kotlinx.coroutines.launch
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val configStore = ConfigStore(application)
-    private val apiClient = ApiClient()
     val voipManager = VoipManager(application)
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
@@ -34,6 +33,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _pairingLoading = MutableStateFlow(false)
     val pairingLoading: StateFlow<Boolean> = _pairingLoading.asStateFlow()
+
+    private val _apiBaseUrl = MutableStateFlow("")
+    val apiBaseUrl: StateFlow<String> = _apiBaseUrl.asStateFlow()
 
     private var sipCredentials: SipCredentials? = null
 
@@ -76,7 +78,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         voipManager.listener = voipListener
+        observeApiBaseUrl()
         checkPaired()
+    }
+
+    private fun observeApiBaseUrl() {
+        viewModelScope.launch {
+            configStore.apiBaseUrl.collect { _apiBaseUrl.value = it }
+        }
     }
 
     private fun checkPaired() {
@@ -107,7 +116,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val deviceName = android.os.Build.MODEL
                 val deviceId = android.os.Build.DEVICE
-                val response = apiClient.claimPairing(code, deviceName, deviceId)
+                val baseUrl = configStore.apiBaseUrl.first()
+                val response = ApiClient(baseUrl).claimPairing(code, deviceName, deviceId)
 
                 val config = AppConfig(
                     profile = response.profile,
@@ -146,11 +156,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun hangup() {
+        _screen.value = Screen.Home
         voipManager.hangup()
     }
 
     fun clearError() {
         _error.value = null
+    }
+
+    fun saveApiBaseUrl(value: String) {
+        viewModelScope.launch {
+            configStore.saveApiBaseUrl(value)
+            _error.value = null
+        }
+    }
+
+    fun resetApiBaseUrl() {
+        viewModelScope.launch {
+            configStore.resetApiBaseUrl()
+            _error.value = null
+        }
     }
 
     override fun onCleared() {

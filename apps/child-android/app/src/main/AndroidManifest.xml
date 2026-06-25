@@ -11,7 +11,8 @@
         android:label="Telefoninho"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
-        android:foregroundServiceType="phoneCall">
+        android:foregroundServiceType="phoneCall"
+        android:usesCleartextTraffic="true">
         <activity android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
