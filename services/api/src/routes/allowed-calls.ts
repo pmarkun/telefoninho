@@ -145,7 +145,41 @@ export function registerAllowedCallRoutes(server: FastifyInstance): void {
         .where(eq(allowedCalls.familyId, req.params.familyId))
         .all();
 
-      return { members: memberList, rules };
+      const localMemberIds = new Set(memberList.map((member) => member.id));
+      const externalContacts = rules
+        .filter((rule) => !localMemberIds.has(rule.toMemberId))
+        .map((rule) => {
+          const fromMember = memberList.find((member) => member.id === rule.fromMemberId);
+          const toMember = db.select({
+            id: familyMembers.id,
+            familyId: familyMembers.familyId,
+            kind: familyMembers.kind,
+            displayName: familyMembers.displayName,
+            active: familyMembers.active,
+            sipExtension: sipAccounts.extension,
+          })
+            .from(familyMembers)
+            .leftJoin(sipAccounts, eq(sipAccounts.familyMemberId, familyMembers.id))
+            .where(eq(familyMembers.id, rule.toMemberId))
+            .get();
+
+          if (!fromMember || !toMember) return null;
+
+          return {
+            ruleId: rule.id,
+            fromMemberId: rule.fromMemberId,
+            fromDisplayName: fromMember.displayName,
+            toMemberId: rule.toMemberId,
+            displayName: toMember.displayName,
+            kind: "external",
+            active: toMember.active,
+            sipExtension: toMember.sipExtension,
+            enabled: rule.enabled,
+          };
+        })
+        .filter((contact): contact is NonNullable<typeof contact> => Boolean(contact));
+
+      return { members: memberList, rules, externalContacts };
     },
   );
 }

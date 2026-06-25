@@ -38,6 +38,7 @@ export default function MembersPage() {
   const [showForm, setShowForm] = useState(false);
   const [formName, setFormName] = useState("");
   const [formKind, setFormKind] = useState("child");
+  const [creating, setCreating] = useState(false);
   const [pairingCode, setPairingCode] = useState("");
   const [pairingExpires, setPairingExpires] = useState("");
 
@@ -82,6 +83,8 @@ export default function MembersPage() {
 
   async function createMember() {
     if (!formName.trim()) { notify("Informe um nome", "error"); return; }
+    if (creating) return;
+    setCreating(true);
     try {
       const res = await fetch(`${API}/families/${familyId}/members`, {
         method: "POST",
@@ -99,6 +102,8 @@ export default function MembersPage() {
       loadData(token);
     } catch {
       notify("Erro de conexão ao criar membro", "error");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -177,10 +182,11 @@ export default function MembersPage() {
               <select value={formKind} onChange={(e) => setFormKind(e.target.value)}>
                 <option value="child">Criança</option>
                 <option value="adult">Adulto</option>
-                <option value="external">Externo</option>
               </select>
             </div>
-            <button className="primary" onClick={createMember}>Criar</button>
+            <button className="primary" onClick={createMember} disabled={creating}>
+              {creating ? "Criando..." : "Criar"}
+            </button>
           </div>
         )}
 

@@ -13,6 +13,7 @@ process.env.JWT_SECRET = "test-secret";
 let apiDb: typeof import("../db/index.js");
 let registerFamilyRoutes: typeof import("../routes/families.js").registerFamilyRoutes;
 let registerMemberRoutes: typeof import("../routes/members.js").registerMemberRoutes;
+let registerAllowedCallRoutes: typeof import("../routes/allowed-calls.js").registerAllowedCallRoutes;
 
 function applyMigration(path: string): void {
   const sqlite = new Database(databasePath);
@@ -42,6 +43,7 @@ function createServer(): FastifyInstance {
   const server = fastify();
   registerFamilyRoutes(server);
   registerMemberRoutes(server);
+  registerAllowedCallRoutes(server);
   return server;
 }
 
@@ -53,8 +55,10 @@ beforeAll(async () => {
   apiDb = await import("../db/index.js");
   const familyRoutes = await import("../routes/families.js");
   const memberRoutes = await import("../routes/members.js");
+  const allowedCallRoutes = await import("../routes/allowed-calls.js");
   registerFamilyRoutes = familyRoutes.registerFamilyRoutes;
   registerMemberRoutes = memberRoutes.registerMemberRoutes;
+  registerAllowedCallRoutes = allowedCallRoutes.registerAllowedCallRoutes;
 });
 
 beforeEach(() => {
@@ -117,6 +121,19 @@ beforeEach(() => {
       createdAt: now(),
       updatedAt: now(),
     }).run();
+
+    apiDb.db.insert(apiDb.sipAccounts).values({
+      id: `sip_${member.id}`,
+      familyMemberId: member.id,
+      extension: member.id === "member_1" ? "1001" : "2001",
+      username: member.id === "member_1" ? "1001" : "2001",
+      passwordHashOrEncrypted: "hash",
+      plaintextPassword: "secret",
+      domain: "sip.test",
+      enabled: true,
+      createdAt: now(),
+      updatedAt: now(),
+    }).run();
   }
 });
 
@@ -170,6 +187,40 @@ describe("family access control", () => {
     expect(response.statusCode).toBe(200);
     expect(families.json()).toHaveLength(0);
     expect(apiDb.db.select().from(apiDb.asteriskConfigState).get()?.pending).toBe(true);
+    await server.close();
+  });
+
+  it("returns cross-family allowed calls as external contacts", async () => {
+    apiDb.db.insert(apiDb.allowedCalls).values({
+      id: "rule_external",
+      familyId: "family_1",
+      fromMemberId: "member_1",
+      toMemberId: "member_2",
+      enabled: true,
+      createdAt: now(),
+      updatedAt: now(),
+    }).run();
+
+    const server = createServer();
+    const response = await server.inject({
+      method: "GET",
+      url: "/families/family_1/permissions",
+      headers: headers("parent_1", "responsible"),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().members.map((member: { id: string }) => member.id)).toEqual(["member_1"]);
+    expect(response.json().externalContacts).toEqual([
+      expect.objectContaining({
+        ruleId: "rule_external",
+        fromMemberId: "member_1",
+        toMemberId: "member_2",
+        displayName: "member_2",
+        kind: "external",
+        sipExtension: "2001",
+        enabled: true,
+      }),
+    ]);
     await server.close();
   });
 });

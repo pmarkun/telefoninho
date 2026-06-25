@@ -32,6 +32,11 @@ describe("createMemberSchema", () => {
     const result = createMemberSchema.safeParse({ kind: "child", displayName: "" });
     expect(result.success).toBe(false);
   });
+
+  it("should reject external manual members", () => {
+    const result = createMemberSchema.safeParse({ kind: "external", displayName: "Contato" });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("allowedCallSchema", () => {

@@ -32,7 +32,7 @@ export const updateResponsibleSchema = z.object({
 });
 
 export const createMemberSchema = z.object({
-  kind: z.enum(["child", "adult", "external"]),
+  kind: z.enum(["child", "adult"]),
   displayName: memberNameSchema,
   avatarKey: z.string().min(1).max(64).optional().default("star_pixel_01"),
   colorKey: z.string().min(1).max(32).optional().default("green"),

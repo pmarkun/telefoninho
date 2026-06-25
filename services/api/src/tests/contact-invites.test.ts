@@ -87,6 +87,13 @@ beforeEach(() => {
     createdAt: now(),
     updatedAt: now(),
   }).run();
+  apiDb.db.insert(apiDb.families).values({
+    id: "family_2",
+    name: "Outra família",
+    active: true,
+    createdAt: now(),
+    updatedAt: now(),
+  }).run();
   apiDb.db.insert(apiDb.parentUsers).values({
     id: "parent_1",
     email: "parent@test.com",
@@ -107,6 +114,7 @@ beforeEach(() => {
   insertMember("child_1", "child");
   insertMember("adult_1", "adult");
   insertMember("adult_2", "adult");
+  insertMember("adult_remote", "adult", "family_2");
 });
 
 describe("contact invite routes", () => {
@@ -234,6 +242,37 @@ describe("contact invite routes", () => {
     expect(response.json().status).toBe("auto_approved");
     expect(apiDb.db.select().from(apiDb.allowedCalls).all()).toHaveLength(1);
     expect(apiDb.db.select().from(apiDb.asteriskConfigState).get()?.pending).toBe(true);
+    await server.close();
+  });
+
+  it("adds cross-family contacts without creating mirror members", async () => {
+    apiDb.db.insert(apiDb.contactInvites).values({
+      id: "invite_1",
+      targetMemberId: "adult_remote",
+      token: "x".repeat(32),
+      expiresAt: new Date("2030-06-25T13:00:00.000Z"),
+      createdAt: now(),
+    }).run();
+    const memberCountBefore = apiDb.db.select().from(apiDb.familyMembers).all().length;
+
+    const server = createServer();
+    const response = await server.inject({
+      method: "POST",
+      url: "/contact-invites/claim",
+      headers: childHeaders("adult_2"),
+      payload: { token: "x".repeat(32), requesterMemberId: "adult_2" },
+    });
+    const rule = apiDb.db.select().from(apiDb.allowedCalls).get();
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().status).toBe("auto_approved");
+    expect(apiDb.db.select().from(apiDb.familyMembers).all()).toHaveLength(memberCountBefore);
+    expect(rule).toEqual(expect.objectContaining({
+      familyId: "family_1",
+      fromMemberId: "adult_2",
+      toMemberId: "adult_remote",
+      enabled: true,
+    }));
     await server.close();
   });
 });
