@@ -2,7 +2,15 @@
 /result
 /result-*
 .env
+.env.local
+.env.*.local
 .opencode/
+node_modules/
+**/node_modules/
+**/.vite/
+*.tsbuildinfo
+*.db-shm
+*.db-wal
 services/api/dev.db
 services/api/dist
 services/api/node_modules
@@ -14,4 +22,3 @@ apps/child-android/build
 apps/child-android/app/build
 infra/asterisk/config/pjsip.generated.conf
 infra/asterisk/config/extensions.generated.conf
-
