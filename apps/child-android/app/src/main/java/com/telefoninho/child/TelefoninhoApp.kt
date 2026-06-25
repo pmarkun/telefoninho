@@ -143,8 +143,6 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             contacts = state.contacts,
                             sipStatus = sipStatus,
                             error = error,
-                            onOpenMyQr = { viewModel.openMyQr() },
-                            onOpenQrScanner = { viewModel.openQrScanner() },
                             onOpenSettings = { viewModel.openSettings() },
                             onOpenContacts = { viewModel.openContacts() },
                             onOpenDialpad = { viewModel.openDialpad() },
@@ -159,8 +157,6 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             onToggleSpeaker = { viewModel.setSpeakerMode(it) },
                             onRingtoneChange = { viewModel.setRingtone(it) },
                             onRefreshContacts = { viewModel.refreshContacts() },
-                            onOpenMyQr = { viewModel.openMyQr() },
-                            onOpenQrScanner = { viewModel.openQrScanner() },
                             onBack = { viewModel.closeSettings() },
                         )
 
@@ -168,6 +164,8 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             contacts = state.contacts,
                             error = error,
                             onCall = { viewModel.callContact(it) },
+                            onOpenMyContact = { viewModel.openMyQr() },
+                            onAddContact = { viewModel.openQrScanner() },
                             onBack = { viewModel.closeSettings() },
                         )
 
@@ -262,8 +260,6 @@ private fun HomeScreen(
     contacts: List<ContactInfo>,
     sipStatus: String,
     error: String?,
-    onOpenMyQr: () -> Unit,
-    onOpenQrScanner: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenContacts: () -> Unit,
     onOpenDialpad: () -> Unit,
@@ -271,13 +267,7 @@ private fun HomeScreen(
     val statusKind = if (sipStatus == "SIP conectado") CallStatus.Ready else CallStatus.Calling
     TelefoninhoFrame(status = sipStatus, statusKind = statusKind) {
         PixelTitle(text = "TELEFONINHO")
-        Spacer(modifier = Modifier.height(14.dp))
-        HomeQuickActions(
-            onOpenMyQr = onOpenMyQr,
-            onOpenQrScanner = onOpenQrScanner,
-            onOpenSettings = onOpenSettings,
-        )
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(22.dp))
         if (error != null) {
             Text(
                 text = error, color = ComposeColor(0xFFC93F3F),
@@ -286,6 +276,8 @@ private fun HomeScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
         }
+        PixelButton(text = "DIALPAD", onClick = onOpenDialpad)
+        Spacer(modifier = Modifier.height(12.dp))
         if (contacts.isEmpty()) {
             Text(
                 text = "NENHUM CONTATO", color = PixelTheme.fg,
@@ -293,27 +285,23 @@ private fun HomeScreen(
                 textAlign = TextAlign.Center,
             )
         } else {
-            PixelButton(text = "CONTATOS (${contacts.size})", onClick = onOpenContacts)
-            Spacer(modifier = Modifier.height(12.dp))
-            PixelButton(text = "DIALPAD", onClick = onOpenDialpad)
+            Text(
+                text = "${contacts.size} CONTATOS",
+                color = PixelTheme.fg,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+            )
         }
-    }
-}
-
-@Composable
-private fun HomeQuickActions(
-    onOpenMyQr: () -> Unit,
-    onOpenQrScanner: () -> Unit,
-    onOpenSettings: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PixelIconButton(text = "QR", onClick = onOpenMyQr)
-        ScanQrIconButton(text = "SCAN", onOpenQrScanner = onOpenQrScanner)
-        PixelIconButton(text = "⚙", onClick = onOpenSettings)
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(modifier = Modifier.weight(1f)) {
+                PixelButton(text = "AGENDA", onClick = onOpenContacts)
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                PixelButton(text = "CONFIG", onClick = onOpenSettings)
+            }
+        }
     }
 }
 
@@ -351,41 +339,28 @@ private fun SettingsScreen(
     onToggleSpeaker: (Boolean) -> Unit,
     onRingtoneChange: (String) -> Unit,
     onRefreshContacts: () -> Unit,
-    onOpenMyQr: () -> Unit,
-    onOpenQrScanner: () -> Unit,
     onBack: () -> Unit,
 ) {
     TelefoninhoFrame(status = "config", statusKind = CallStatus.Ready) {
         PixelTitle(text = "CONFIG")
         Spacer(modifier = Modifier.height(18.dp))
-        PixelCard {
-            Row(
+        if (error != null) {
+            Text(
+                text = error,
+                color = if (error.contains("atualizado", ignoreCase = true) ||
+                    error.contains("adicionado", ignoreCase = true)
+                ) {
+                    PixelTheme.fg
+                } else {
+                    ComposeColor(0xFFC93F3F)
+                },
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                PixelIconButton(text = "QR", onClick = onOpenMyQr)
-                ScanQrIconButton(text = "SCAN", onOpenQrScanner = onOpenQrScanner)
-            }
-            if (error != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = error,
-                    color = if (error.contains("atualizado", ignoreCase = true) ||
-                        error.contains("adicionado", ignoreCase = true)
-                    ) {
-                        PixelTheme.fg
-                    } else {
-                        ComposeColor(0xFFC93F3F)
-                    },
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
         }
-        Spacer(modifier = Modifier.height(12.dp))
         PixelButton(text = "SERVIDOR", onClick = onOpenServerSettings)
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(
@@ -425,6 +400,8 @@ private fun ContactsScreen(
     contacts: List<ContactInfo>,
     error: String?,
     onCall: (ContactInfo) -> Unit,
+    onOpenMyContact: () -> Unit,
+    onAddContact: () -> Unit,
     onBack: () -> Unit,
 ) {
     var page by remember(contacts) { mutableIntStateOf(0) }
@@ -433,8 +410,10 @@ private fun ContactsScreen(
     val visibleContacts = contacts.drop(page * pageSize).take(pageSize)
 
     TelefoninhoFrame(status = "contatos", statusKind = CallStatus.Ready) {
-        PixelTitle(text = "CONTATOS")
+        PixelTitle(text = "AGENDA")
         Spacer(modifier = Modifier.height(18.dp))
+        ContactTools(onOpenMyContact = onOpenMyContact, onAddContact = onAddContact)
+        Spacer(modifier = Modifier.height(12.dp))
         if (error != null) {
             Text(
                 text = error,
@@ -476,6 +455,37 @@ private fun ContactsScreen(
         }
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(text = "VOLTAR", onClick = onBack)
+    }
+}
+
+@Composable
+private fun ContactTools(onOpenMyContact: () -> Unit, onAddContact: () -> Unit) {
+    val context = LocalContext.current
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) onAddContact()
+    }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(modifier = Modifier.weight(1f)) {
+            PixelButton(text = "MEU CONTATO", onClick = onOpenMyContact)
+        }
+        Box(modifier = Modifier.weight(1f)) {
+            PixelButton(
+                text = "ADD CONTATO",
+                onClick = {
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA,
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        onAddContact()
+                    } else {
+                        cameraLauncher.launch(Manifest.permission.CAMERA)
+                    }
+                },
+            )
+        }
     }
 }
 
