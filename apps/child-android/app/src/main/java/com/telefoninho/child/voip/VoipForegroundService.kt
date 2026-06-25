@@ -182,6 +182,7 @@ class VoipForegroundService : Service() {
                     delay(700)
                 }
             } finally {
+                toneGenerator.stopTone()
                 toneGenerator.release()
             }
         }
@@ -194,17 +195,44 @@ class VoipForegroundService : Service() {
 
     private suspend fun playRingtonePattern(toneGenerator: ToneGenerator, option: String) {
         val pattern = when (option) {
-            "COIN" -> listOf(120, 80, 120, 260)
-            "LASER" -> listOf(80, 60, 80, 60, 220)
-            else -> listOf(180, 120, 180, 320)
+            "COIN" -> listOf(
+                RingtoneStep(ToneGenerator.TONE_DTMF_5, 70),
+                RingtoneStep(null, 35),
+                RingtoneStep(ToneGenerator.TONE_DTMF_8, 70),
+                RingtoneStep(null, 35),
+                RingtoneStep(ToneGenerator.TONE_DTMF_9, 150),
+                RingtoneStep(null, 120),
+                RingtoneStep(ToneGenerator.TONE_DTMF_9, 80),
+                RingtoneStep(null, 35),
+                RingtoneStep(ToneGenerator.TONE_DTMF_0, 180),
+            )
+            "LASER" -> listOf(
+                RingtoneStep(ToneGenerator.TONE_DTMF_9, 90),
+                RingtoneStep(null, 25),
+                RingtoneStep(ToneGenerator.TONE_DTMF_6, 90),
+                RingtoneStep(null, 25),
+                RingtoneStep(ToneGenerator.TONE_DTMF_3, 90),
+                RingtoneStep(null, 25),
+                RingtoneStep(ToneGenerator.TONE_DTMF_1, 210),
+                RingtoneStep(null, 180),
+                RingtoneStep(ToneGenerator.TONE_PROP_NACK, 180),
+            )
+            else -> listOf(
+                RingtoneStep(ToneGenerator.TONE_PROP_BEEP, 220),
+                RingtoneStep(null, 160),
+                RingtoneStep(ToneGenerator.TONE_PROP_BEEP, 220),
+                RingtoneStep(null, 420),
+            )
         }
-        pattern.forEachIndexed { index, duration ->
-            if (index % 2 == 0) {
-                toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, duration)
+        pattern.forEach { step ->
+            if (step.tone != null) {
+                toneGenerator.startTone(step.tone, step.durationMs)
             }
-            delay(duration.toLong())
+            delay(step.durationMs.toLong())
         }
     }
+
+    private data class RingtoneStep(val tone: Int?, val durationMs: Int)
 
     companion object {
         private const val SERVICE_CHANNEL_ID = "telefoninho_voip"
