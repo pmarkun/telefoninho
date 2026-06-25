@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
-import { db, families, familyMembers, parentUsers, sipAccounts, allowedCalls } from "../src/db/index.js";
+import { db, families, familyMembers, familyResponsibles, parentUsers, sipAccounts, allowedCalls } from "../src/db/index.js";
 
 function hash(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -21,6 +21,8 @@ async function seed() {
     db.update(parentUsers).set({
       passwordHash: hash("devpassword"),
       displayName: "Pedro",
+      role: "admin",
+      active: true,
       updatedAt: now,
     }).where(eq(parentUsers.id, existingParent.id)).run();
   } else {
@@ -29,6 +31,8 @@ async function seed() {
       email: "parent@demo.com",
       passwordHash: hash("devpassword"),
       displayName: "Pedro",
+      role: "admin",
+      active: true,
       createdAt: now,
       updatedAt: now,
     }).run();
@@ -37,14 +41,29 @@ async function seed() {
   const existingFamily = db.select().from(families).where(eq(families.name, "Família Demo")).get();
   const familyId = existingFamily?.id ?? cuid();
   if (existingFamily) {
-    db.update(families).set({ updatedAt: now }).where(eq(families.id, familyId)).run();
+    db.update(families).set({ active: true, updatedAt: now }).where(eq(families.id, familyId)).run();
   } else {
     db.insert(families).values({
       id: familyId,
       name: "Família Demo",
+      active: true,
       createdAt: now,
       updatedAt: now,
     }).run();
+  }
+
+  const parent = db.select().from(parentUsers).where(eq(parentUsers.email, "parent@demo.com")).get();
+  if (parent) {
+    const existingLink = db.select().from(familyResponsibles).where(eq(familyResponsibles.parentUserId, parent.id)).get();
+    if (!existingLink) {
+      db.insert(familyResponsibles).values({
+        id: cuid(),
+        familyId,
+        parentUserId: parent.id,
+        createdAt: now,
+        updatedAt: now,
+      }).run();
+    }
   }
 
   console.log(`  Family: Família Demo`);

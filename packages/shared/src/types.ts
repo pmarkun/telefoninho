@@ -60,11 +60,13 @@ export type ParentUser = {
   id: string;
   email: string;
   displayName: string;
+  role: "admin" | "responsible";
 };
 
 export type LoginResponse = {
   token: string;
   parent: ParentUser;
+  families: { id: string; name: string; active: boolean }[];
 };
 
 export type PermissionsMatrix = {

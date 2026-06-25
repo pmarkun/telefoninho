@@ -39,11 +39,12 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             }
         }
 
-    suspend fun generateContactInvite(memberId: String): ContactInviteResponse =
+    suspend fun generateContactInvite(memberId: String, authToken: String): ContactInviteResponse =
         withContext(Dispatchers.IO) {
             val conn = URL("$baseUrl/members/$memberId/contact-invite").openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Authorization", "Bearer $authToken")
             conn.doOutput = true
             conn.connectTimeout = 10_000
             conn.readTimeout = 10_000
@@ -87,7 +88,7 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             }
         }
 
-    suspend fun claimContactInvite(token: String, requesterMemberId: String): String =
+    suspend fun claimContactInvite(token: String, requesterMemberId: String, authToken: String): String =
         withContext(Dispatchers.IO) {
             val body = JSONObject().apply {
                 put("token", token)
@@ -97,6 +98,7 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             val conn = URL("$baseUrl/contact-invites/claim").openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("Authorization", "Bearer $authToken")
             conn.doOutput = true
             conn.connectTimeout = 10_000
             conn.readTimeout = 10_000

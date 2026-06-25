@@ -19,7 +19,7 @@ function applyMigration(path: string): void {
 }
 
 function now(): Date {
-  return new Date("2026-06-25T12:00:00.000Z");
+  return new Date("2030-06-25T12:00:00.000Z");
 }
 
 function createServer(): FastifyInstance {
@@ -32,6 +32,7 @@ beforeAll(async () => {
   applyMigration("drizzle/0000_nebulous_joystick.sql");
   applyMigration("drizzle/0001_contact_invites.sql");
   applyMigration("drizzle/0002_asterisk_config_state.sql");
+  applyMigration("drizzle/0003_multi_family_access.sql");
   apiDb = await import("../db/index.js");
   const routes = await import("../routes/pairing.js");
   registerPairingRoutes = routes.registerPairingRoutes;
@@ -47,6 +48,7 @@ beforeEach(() => {
   apiDb.db.insert(apiDb.families).values({
     id: "family_1",
     name: "Demo",
+    active: true,
     createdAt: now(),
     updatedAt: now(),
   }).run();
@@ -77,7 +79,7 @@ beforeEach(() => {
     id: "pair_1",
     familyMemberId: "child_1",
     code: "123456",
-    expiresAt: new Date("2026-06-25T13:00:00.000Z"),
+    expiresAt: new Date("2030-06-25T13:00:00.000Z"),
     createdAt: now(),
   }).run();
 });

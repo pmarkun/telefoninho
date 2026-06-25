@@ -312,7 +312,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val baseUrl = configStore.apiBaseUrl.first()
-                val response = ApiClient(baseUrl).generateContactInvite(profile.memberId)
+                val authToken = configStore.loadConfig()?.token ?: error("Telefone nao pareado")
+                val response = ApiClient(baseUrl).generateContactInvite(profile.memberId, authToken)
                 _contactQrPayload.value = response.qrPayload
             } catch (e: Exception) {
                 _error.value = e.message ?: "Erro ao gerar QR"
@@ -336,9 +337,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val baseUrl = configStore.apiBaseUrl.first()
+                val authToken = configStore.loadConfig()?.token ?: error("Telefone nao pareado")
                 val status = ApiClient(baseUrl).claimContactInvite(
                     token = payload.getString("token"),
                     requesterMemberId = profile.memberId,
+                    authToken = authToken,
                 )
                 if (status == "auto_approved") {
                     refreshContactsAfterInvite()

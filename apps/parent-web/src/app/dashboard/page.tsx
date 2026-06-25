@@ -3,8 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNotify } from "../notify-context";
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+import {
+  API,
+  chooseActiveFamily,
+  Family,
+  getSession,
+  loadFamilies,
+  NavBar,
+  ParentRole,
+  setActiveFamilyId,
+} from "../session";
 
 interface Member {
   id: string;
@@ -26,38 +34,57 @@ export default function DashboardPage() {
   const { notify } = useNotify();
   const [token, setToken] = useState("");
   const [parentName, setParentName] = useState("");
+  const [parentRole, setParentRole] = useState<ParentRole>("responsible");
+  const [families, setFamilies] = useState<Family[]>([]);
+  const [activeFamily, setActiveFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [stats, setStats] = useState({ families: 0, members: 0, totalCalls: 0 });
   const [asteriskStatus, setAsteriskStatus] = useState<AsteriskStatus | null>(null);
   const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
-    const t = localStorage.getItem("token");
-    const pn = localStorage.getItem("parentName");
-    if (!t) { router.push("/login"); return; }
-    setToken(t);
-    setParentName(pn || "");
-
-    const h = { Authorization: `Bearer ${t}` };
-
-    fetch(`${API}/families`, { headers: h })
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data: { id: string; name: string }[]) => {
-        if (data.length > 0) {
-          return fetch(`${API}/families/${data[0].id}/members`, { headers: h })
-            .then((r2) => { if (!r2.ok) throw new Error(); return r2.json(); })
-            .then(setMembers);
-        }
-      })
-      .catch(() => notify("Erro ao carregar membros", "error"));
-
-    fetch(`${API}/admin/stats`, { headers: h })
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then(setStats)
-      .catch(() => notify("Erro ao carregar estatísticas", "error"));
-
-    loadAsteriskStatus(t, setAsteriskStatus, notify);
+    const session = getSession();
+    if (!session) { router.push("/login"); return; }
+    setToken(session.token);
+    setParentName(session.parentName);
+    setParentRole(session.parentRole);
+    loadDashboard(session.token);
   }, [router, notify]);
+
+  async function loadDashboard(t = token, familyId?: string) {
+    if (!t) return;
+    const h = { Authorization: `Bearer ${t}` };
+    try {
+      const familyList = await loadFamilies(t);
+      setFamilies(familyList);
+      const chosen = familyId
+        ? familyList.find((family) => family.id === familyId) || familyList[0] || null
+        : chooseActiveFamily(familyList);
+      setActiveFamily(chosen);
+      if (!chosen) {
+        setMembers([]);
+        return;
+      }
+      setActiveFamilyId(chosen.id);
+
+      const membersRes = await fetch(`${API}/families/${chosen.id}/members`, { headers: h });
+      if (!membersRes.ok) throw new Error("members");
+      setMembers(await membersRes.json());
+
+      const statsRes = await fetch(`${API}/admin/stats?familyId=${chosen.id}`, { headers: h });
+      if (!statsRes.ok) throw new Error("stats");
+      setStats(await statsRes.json());
+
+      await loadAsteriskStatus(t, setAsteriskStatus, notify);
+    } catch {
+      notify("Erro ao carregar dashboard", "error");
+    }
+  }
+
+  function changeFamily(familyId: string) {
+    setActiveFamilyId(familyId);
+    loadDashboard(token, familyId);
+  }
 
   async function regenerateAsterisk() {
     setRegenerating(true);
@@ -85,19 +112,15 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <nav className="nav">
-        <a href="/dashboard" className="brand">Telefoninho</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/members">Membros</a>
-        <a href="/permissions">Permissões</a>
-        <a href="/invites">Convites</a>
-        <a href="/call-logs">Chamadas</a>
-        <span className="spacer" />
-        <span className="user">{parentName}</span>
-        <a href="/login" onClick={(e) => { e.preventDefault(); localStorage.clear(); router.push("/login"); }}>Sair</a>
-      </nav>
+      <NavBar
+        parentName={parentName}
+        parentRole={parentRole}
+        families={families}
+        activeFamilyId={activeFamily?.id || ""}
+        onFamilyChange={changeFamily}
+      />
       <div className="container">
-        <h1>Dashboard</h1>
+        <h1>Dashboard{activeFamily ? ` · ${activeFamily.name}` : ""}</h1>
         <div className="grid-3">
           <div className="card">
             <h3>{stats.families}</h3>

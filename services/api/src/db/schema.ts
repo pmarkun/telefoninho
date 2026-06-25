@@ -1,10 +1,12 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const parentUsers = sqliteTable("parent_user", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull(),
+  role: text("role").notNull().default("responsible"),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
@@ -12,9 +14,20 @@ export const parentUsers = sqliteTable("parent_user", {
 export const families = sqliteTable("family", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+export const familyResponsibles = sqliteTable("family_responsible", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull().references(() => families.id),
+  parentUserId: text("parent_user_id").notNull().references(() => parentUsers.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+}, (table) => ({
+  familyUserUnique: uniqueIndex("family_responsible_family_user_unique").on(table.familyId, table.parentUserId),
+}));
 
 export const familyMembers = sqliteTable("family_member", {
   id: text("id").primaryKey(),

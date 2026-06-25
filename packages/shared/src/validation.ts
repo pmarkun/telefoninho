@@ -8,6 +8,29 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const createFamilySchema = z.object({
+  name: z.string().min(1).max(96),
+});
+
+export const updateFamilySchema = z.object({
+  name: z.string().min(1).max(96).optional(),
+  active: z.boolean().optional(),
+});
+
+export const createResponsibleSchema = z.object({
+  email: z.string().email(),
+  displayName: z.string().min(1).max(96),
+  password: z.string().min(6).max(128).optional(),
+});
+
+export const updateResponsibleSchema = z.object({
+  email: z.string().email().optional(),
+  displayName: z.string().min(1).max(96).optional(),
+  password: z.string().min(6).max(128).optional(),
+  active: z.boolean().optional(),
+  role: z.enum(["admin", "responsible"]).optional(),
+});
+
 export const createMemberSchema = z.object({
   kind: z.enum(["child", "adult", "external"]),
   displayName: memberNameSchema,

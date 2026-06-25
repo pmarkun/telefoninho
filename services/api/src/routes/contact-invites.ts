@@ -11,6 +11,11 @@ import {
   familyMembers,
 } from "../db/index.js";
 import { markAsteriskConfigPending } from "../asterisk-config-state.js";
+import {
+  requireContactRequestAccess,
+  requireFamilyAccess,
+  requireMemberOrChildAccess,
+} from "../auth-context.js";
 
 function cuid(): string {
   return crypto.randomBytes(12).toString("hex");
@@ -91,12 +96,9 @@ export function registerContactInviteRoutes(server: FastifyInstance): void {
   server.post<{ Params: { memberId: string } }>(
     "/members/:memberId/contact-invite",
     async (req, reply) => {
-      const member = db.select()
-        .from(familyMembers)
-        .where(eq(familyMembers.id, req.params.memberId))
-        .get();
+      const member = requireMemberOrChildAccess(req, reply, req.params.memberId);
       if (!member) {
-        return reply.status(404).send({ error: "Member not found" });
+        return reply;
       }
 
       const now = new Date();
@@ -126,6 +128,8 @@ export function registerContactInviteRoutes(server: FastifyInstance): void {
 
   server.post("/contact-invites/claim", async (req, reply) => {
     const input = claimContactInviteSchema.parse(req.body);
+    const requesterAccess = requireMemberOrChildAccess(req, reply, input.requesterMemberId);
+    if (!requesterAccess) return reply;
     const invite = db.select()
       .from(contactInvites)
       .where(eq(contactInvites.token, input.token))
@@ -202,6 +206,7 @@ export function registerContactInviteRoutes(server: FastifyInstance): void {
   server.get<{ Params: { familyId: string } }>(
     "/families/:familyId/contact-requests",
     async (req, reply) => {
+      if (!requireFamilyAccess(req, reply, req.params.familyId)) return reply;
       const family = db.select()
         .from(families)
         .where(eq(families.id, req.params.familyId))
@@ -223,12 +228,9 @@ export function registerContactInviteRoutes(server: FastifyInstance): void {
     "/contact-requests/:requestId/approve",
     async (req, reply) => {
       const input = resolveContactRequestSchema.parse(req.body ?? {});
-      const request = db.select()
-        .from(contactRequests)
-        .where(eq(contactRequests.id, req.params.requestId))
-        .get();
+      const request = requireContactRequestAccess(req, reply, req.params.requestId);
       if (!request) {
-        return reply.status(404).send({ error: "Contact request not found" });
+        return reply;
       }
       if (request.status !== "pending") {
         return serializeContactRequest(request);
@@ -261,12 +263,9 @@ export function registerContactInviteRoutes(server: FastifyInstance): void {
     "/contact-requests/:requestId/reject",
     async (req, reply) => {
       const input = resolveContactRequestSchema.parse(req.body ?? {});
-      const request = db.select()
-        .from(contactRequests)
-        .where(eq(contactRequests.id, req.params.requestId))
-        .get();
+      const request = requireContactRequestAccess(req, reply, req.params.requestId);
       if (!request) {
-        return reply.status(404).send({ error: "Contact request not found" });
+        return reply;
       }
       if (request.status !== "pending") {
         return serializeContactRequest(request);

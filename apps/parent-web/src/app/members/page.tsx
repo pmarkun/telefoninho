@@ -3,8 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNotify } from "../notify-context";
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+import {
+  API,
+  chooseActiveFamily,
+  Family,
+  getSession,
+  loadFamilies,
+  NavBar,
+  ParentRole,
+  setActiveFamilyId,
+} from "../session";
 
 interface Member {
   id: string;
@@ -22,6 +30,9 @@ export default function MembersPage() {
   const { notify } = useNotify();
   const [token, setToken] = useState("");
   const [parentName, setParentName] = useState("");
+  const [parentRole, setParentRole] = useState<ParentRole>("responsible");
+  const [families, setFamilies] = useState<Family[]>([]);
+  const [activeFamily, setActiveFamily] = useState<Family | null>(null);
   const [familyId, setFamilyId] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -31,30 +42,42 @@ export default function MembersPage() {
   const [pairingExpires, setPairingExpires] = useState("");
 
   useEffect(() => {
-    const t = localStorage.getItem("token");
-    const pn = localStorage.getItem("parentName");
-    if (!t) { router.push("/login"); return; }
-    setToken(t);
-    setParentName(pn || "");
-    loadData(t);
+    const session = getSession();
+    if (!session) { router.push("/login"); return; }
+    setToken(session.token);
+    setParentName(session.parentName);
+    setParentRole(session.parentRole);
+    loadData(session.token);
   }, [router]);
 
-  async function loadData(t: string) {
+  async function loadData(t: string, nextFamilyId?: string) {
     const h = { Authorization: `Bearer ${t}` };
     try {
-      const familiesRes = await fetch(`${API}/families`, { headers: h });
-      if (!familiesRes.ok) { notify("Erro ao carregar famílias", "error"); return; }
-      const families = await familiesRes.json();
-      if (families.length > 0) {
-        const fid = families[0].id;
+      const familyList = await loadFamilies(t);
+      setFamilies(familyList);
+      const chosen = nextFamilyId
+        ? familyList.find((family) => family.id === nextFamilyId) || familyList[0] || null
+        : chooseActiveFamily(familyList);
+      setActiveFamily(chosen);
+      if (chosen) {
+        const fid = chosen.id;
+        setActiveFamilyId(fid);
         setFamilyId(fid);
         const membersRes = await fetch(`${API}/families/${fid}/members`, { headers: h });
         if (!membersRes.ok) { notify("Erro ao carregar membros", "error"); return; }
         setMembers(await membersRes.json());
+      } else {
+        setFamilyId("");
+        setMembers([]);
       }
     } catch {
       notify("Erro de conexão", "error");
     }
+  }
+
+  function changeFamily(nextFamilyId: string) {
+    setActiveFamilyId(nextFamilyId);
+    loadData(token, nextFamilyId);
   }
 
   async function createMember() {
@@ -127,17 +150,13 @@ export default function MembersPage() {
 
   return (
     <div>
-      <nav className="nav">
-        <a href="/dashboard" className="brand">Telefoninho</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/members">Membros</a>
-        <a href="/permissions">Permissões</a>
-        <a href="/invites">Convites</a>
-        <a href="/call-logs">Chamadas</a>
-        <span className="spacer" />
-        <span className="user">{parentName}</span>
-        <a href="/login" onClick={(e) => { e.preventDefault(); localStorage.clear(); router.push("/login"); }}>Sair</a>
-      </nav>
+      <NavBar
+        parentName={parentName}
+        parentRole={parentRole}
+        families={families}
+        activeFamilyId={activeFamily?.id || ""}
+        onFamilyChange={changeFamily}
+      />
       <div className="container">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1>Membros</h1>

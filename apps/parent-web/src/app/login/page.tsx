@@ -30,6 +30,12 @@ export default function LoginPage() {
       const data = await res.json();
       localStorage.setItem("token", data.token);
       localStorage.setItem("parentName", data.parent.displayName);
+      localStorage.setItem("parentRole", data.parent.role || "responsible");
+      if (Array.isArray(data.families) && data.families.length > 0) {
+        localStorage.setItem("activeFamilyId", data.families[0].id);
+      } else {
+        localStorage.removeItem("activeFamilyId");
+      }
       router.push("/dashboard");
     } catch {
       setError("Erro de conexão com o servidor");

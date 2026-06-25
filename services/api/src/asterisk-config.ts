@@ -58,7 +58,8 @@ export function generateAsteriskConfig(options: {
              fm.kind, fm.family_id as familyId
       FROM sip_account sa
       JOIN family_member fm ON fm.id = sa.family_member_id
-      WHERE sa.enabled = 1 AND fm.active = 1
+      JOIN family f ON f.id = fm.family_id
+      WHERE sa.enabled = 1 AND fm.active = 1 AND f.active = 1
     `).all() as SipRow[];
 
     const callRules = sqlite.prepare(`

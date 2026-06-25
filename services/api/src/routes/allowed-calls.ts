@@ -4,6 +4,12 @@ import { eq, and } from "drizzle-orm";
 import { allowedCallSchema, updateAllowedCallSchema } from "@telefoninho/shared/validation";
 import { db, families, familyMembers, allowedCalls, sipAccounts } from "../db/index.js";
 import { markAsteriskConfigPending } from "../asterisk-config-state.js";
+import {
+  requireAllowedCallAccess,
+  requireFamilyAccess,
+  requireMemberOrChildAccess,
+  requireParent,
+} from "../auth-context.js";
 
 function cuid(): string {
   return crypto.randomBytes(12).toString("hex");
@@ -13,9 +19,9 @@ export function registerAllowedCallRoutes(server: FastifyInstance): void {
   server.get<{ Params: { fromMemberId: string } }>(
     "/members/:fromMemberId/contacts",
     async (req, reply) => {
-      const member = db.select().from(familyMembers).where(eq(familyMembers.id, req.params.fromMemberId)).get();
+      const member = requireMemberOrChildAccess(req, reply, req.params.fromMemberId);
       if (!member) {
-        return reply.status(404).send({ error: "Member not found" });
+        return reply;
       }
 
       const rules = db.select({
@@ -47,7 +53,22 @@ export function registerAllowedCallRoutes(server: FastifyInstance): void {
   );
 
   server.post("/allowed-calls", async (req, reply) => {
+    const parent = requireParent(req, reply);
+    if (!parent) return reply;
     const input = allowedCallSchema.parse(req.body);
+
+    const fromMember = db.select().from(familyMembers).where(eq(familyMembers.id, input.fromMemberId)).get();
+    if (!fromMember) {
+      return reply.status(404).send({ error: "fromMember not found" });
+    }
+    const toMember = db.select().from(familyMembers).where(eq(familyMembers.id, input.toMemberId)).get();
+    if (!toMember) {
+      return reply.status(404).send({ error: "toMember not found" });
+    }
+    if (!requireFamilyAccess(req, reply, fromMember.familyId)) return reply;
+    if (fromMember.familyId !== toMember.familyId) {
+      return reply.status(400).send({ error: "Members must belong to the same family" });
+    }
 
     const existing = db.select()
       .from(allowedCalls)
@@ -64,15 +85,6 @@ export function registerAllowedCallRoutes(server: FastifyInstance): void {
         .run();
       markAsteriskConfigPending();
       return db.select().from(allowedCalls).where(eq(allowedCalls.id, existing.id)).get();
-    }
-
-    const fromMember = db.select().from(familyMembers).where(eq(familyMembers.id, input.fromMemberId)).get();
-    if (!fromMember) {
-      return reply.status(404).send({ error: "fromMember not found" });
-    }
-    const toMember = db.select().from(familyMembers).where(eq(familyMembers.id, input.toMemberId)).get();
-    if (!toMember) {
-      return reply.status(404).send({ error: "toMember not found" });
     }
 
     const now = new Date();
@@ -97,9 +109,9 @@ export function registerAllowedCallRoutes(server: FastifyInstance): void {
     async (req, reply) => {
       const input = updateAllowedCallSchema.parse(req.body);
 
-      const rule = db.select().from(allowedCalls).where(eq(allowedCalls.id, req.params.ruleId)).get();
+      const rule = requireAllowedCallAccess(req, reply, req.params.ruleId);
       if (!rule) {
-        return reply.status(404).send({ error: "Rule not found" });
+        return reply;
       }
 
       db.update(allowedCalls)
@@ -116,6 +128,7 @@ export function registerAllowedCallRoutes(server: FastifyInstance): void {
   server.get<{ Params: { familyId: string } }>(
     "/families/:familyId/permissions",
     async (req, reply) => {
+      if (!requireFamilyAccess(req, reply, req.params.familyId)) return reply;
       const family = db.select().from(families).where(eq(families.id, req.params.familyId)).get();
       if (!family) {
         return reply.status(404).send({ error: "Family not found" });

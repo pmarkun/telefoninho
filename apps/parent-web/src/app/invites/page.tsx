@@ -5,8 +5,16 @@ import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNotify } from "../notify-context";
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+import {
+  API,
+  chooseActiveFamily,
+  Family,
+  getSession,
+  loadFamilies,
+  NavBar,
+  ParentRole,
+  setActiveFamilyId,
+} from "../session";
 
 type Member = {
   id: string;
@@ -63,6 +71,9 @@ export default function InvitesPage() {
   const controlsRef = useRef<{ stop: () => void } | null>(null);
   const [token, setToken] = useState("");
   const [parentName, setParentName] = useState("");
+  const [parentRole, setParentRole] = useState<ParentRole>("responsible");
+  const [families, setFamilies] = useState<Family[]>([]);
+  const [activeFamily, setActiveFamily] = useState<Family | null>(null);
   const [familyId, setFamilyId] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [requests, setRequests] = useState<ContactRequest[]>([]);
@@ -73,24 +84,29 @@ export default function InvitesPage() {
   const [scannerActive, setScannerActive] = useState(false);
 
   useEffect(() => {
-    const t = localStorage.getItem("token");
-    const pn = localStorage.getItem("parentName");
-    if (!t) { router.push("/login"); return; }
-    setToken(t);
-    setParentName(pn || "");
-    loadData(t);
+    const session = getSession();
+    if (!session) { router.push("/login"); return; }
+    setToken(session.token);
+    setParentName(session.parentName);
+    setParentRole(session.parentRole);
+    loadData(session.token);
     return () => controlsRef.current?.stop();
   }, [router]);
 
-  async function loadData(t: string) {
+  async function loadData(t: string, selectedFamilyId?: string) {
     const headers = { Authorization: `Bearer ${t}` };
     try {
-      const familiesRes = await fetch(`${API}/families`, { headers });
-      if (!familiesRes.ok) { notify("Erro ao carregar famílias", "error"); return; }
-      const families = await familiesRes.json();
+      const families = await loadFamilies(t);
+      setFamilies(families);
       if (!Array.isArray(families) || families.length === 0) return;
 
-      const fid = families[0].id;
+      const family = selectedFamilyId
+        ? families.find((item) => item.id === selectedFamilyId) || families[0]
+        : chooseActiveFamily(families);
+      setActiveFamily(family);
+      if (!family) return;
+      const fid = family.id;
+      setActiveFamilyId(fid);
       setFamilyId(fid);
 
       const membersRes = await fetch(`${API}/families/${fid}/members`, { headers });
@@ -98,14 +114,23 @@ export default function InvitesPage() {
       const memberList = await membersRes.json();
       setMembers(memberList);
       if (memberList.length > 0) {
-        setSelectedOwnerId((current) => current || memberList[0].id);
-        setSelectedRequesterId((current) => current || memberList[0].id);
+        setSelectedOwnerId(memberList[0].id);
+        setSelectedRequesterId(memberList[0].id);
+      } else {
+        setSelectedOwnerId("");
+        setSelectedRequesterId("");
       }
 
       await loadRequests(t, fid);
     } catch {
       notify("Erro de conexão", "error");
     }
+  }
+
+  function changeFamily(nextFamilyId: string) {
+    setActiveFamilyId(nextFamilyId);
+    setQrDataUrl("");
+    loadData(token, nextFamilyId);
   }
 
   async function loadRequests(t = token, fid = familyId) {
@@ -212,17 +237,13 @@ export default function InvitesPage() {
 
   return (
     <div>
-      <nav className="nav">
-        <a href="/dashboard" className="brand">Telefoninho</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/members">Membros</a>
-        <a href="/permissions">Permissões</a>
-        <a href="/invites">Convites</a>
-        <a href="/call-logs">Chamadas</a>
-        <span className="spacer" />
-        <span className="user">{parentName}</span>
-        <a href="/login" onClick={(e) => { e.preventDefault(); localStorage.clear(); router.push("/login"); }}>Sair</a>
-      </nav>
+      <NavBar
+        parentName={parentName}
+        parentRole={parentRole}
+        families={families}
+        activeFamilyId={activeFamily?.id || ""}
+        onFamilyChange={changeFamily}
+      />
 
       <div className="container">
         <h1>Convites por QR</h1>

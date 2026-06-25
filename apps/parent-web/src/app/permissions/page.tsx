@@ -3,8 +3,16 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useNotify } from "../notify-context";
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+import {
+  API,
+  chooseActiveFamily,
+  Family,
+  getSession,
+  loadFamilies,
+  NavBar,
+  ParentRole,
+  setActiveFamilyId,
+} from "../session";
 
 interface Member {
   id: string;
@@ -24,6 +32,9 @@ export default function PermissionsPage() {
   const router = useRouter();
   const { notify } = useNotify();
   const [parentName, setParentName] = useState("");
+  const [parentRole, setParentRole] = useState<ParentRole>("responsible");
+  const [families, setFamilies] = useState<Family[]>([]);
+  const [activeFamily, setActiveFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [saving, setSaving] = useState(false);
@@ -31,12 +42,12 @@ export default function PermissionsPage() {
   const tokenRef = useRef("");
 
   useEffect(() => {
-    const t = localStorage.getItem("token");
-    const pn = localStorage.getItem("parentName");
-    if (!t) { router.push("/login"); return; }
-    tokenRef.current = t;
-    setParentName(pn || "");
-    loadPermissions(t, setMembers, setRules, notify);
+    const session = getSession();
+    if (!session) { router.push("/login"); return; }
+    tokenRef.current = session.token;
+    setParentName(session.parentName);
+    setParentRole(session.parentRole);
+    loadPermissions(session.token, setMembers, setRules, notify, setFamilies, setActiveFamily);
   }, [router, notify]);
 
   const getRule = useCallback(
@@ -90,19 +101,20 @@ export default function PermissionsPage() {
     }
   }
 
+  function changeFamily(familyId: string) {
+    setActiveFamilyId(familyId);
+    loadPermissions(tokenRef.current, setMembers, setRules, notify, setFamilies, setActiveFamily, familyId);
+  }
+
   return (
     <div>
-      <nav className="nav">
-        <a href="/dashboard" className="brand">Telefoninho</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/members">Membros</a>
-        <a href="/permissions">Permissões</a>
-        <a href="/invites">Convites</a>
-        <a href="/call-logs">Chamadas</a>
-        <span className="spacer" />
-        <span className="user">{parentName}</span>
-        <a href="/login" onClick={(e) => { e.preventDefault(); localStorage.clear(); router.push("/login"); }}>Sair</a>
-      </nav>
+      <NavBar
+        parentName={parentName}
+        parentRole={parentRole}
+        families={families}
+        activeFamilyId={activeFamily?.id || ""}
+        onFamilyChange={changeFamily}
+      />
       <div className="container">
         <h1>Matriz de Permissões</h1>
         <p style={{ color: "var(--text-muted)", marginBottom: "1rem" }}>
@@ -171,15 +183,21 @@ async function loadPermissions(
   setMembers: (v: Member[]) => void,
   setRules: (v: Rule[]) => void,
   notify: (msg: string, type?: "success" | "error" | "info") => void,
+  setFamilies: (v: Family[]) => void,
+  setActiveFamily: (v: Family | null) => void,
+  selectedFamilyId?: string,
 ) {
   try {
-    const familiesRes = await fetch(`${API}/families`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!familiesRes.ok) { notify("Erro ao carregar famílias", "error"); return; }
-    const families: { id: string }[] = await familiesRes.json();
+    const families = await loadFamilies(token);
+    setFamilies(families);
     if (families.length === 0) { notify("Nenhuma família encontrada", "error"); return; }
-    const fid = families[0].id;
+    const family = selectedFamilyId
+      ? families.find((item) => item.id === selectedFamilyId) || families[0]
+      : chooseActiveFamily(families);
+    setActiveFamily(family);
+    if (!family) return;
+    setActiveFamilyId(family.id);
+    const fid = family.id;
 
     const permRes = await fetch(`${API}/families/${fid}/permissions`, {
       headers: { Authorization: `Bearer ${token}` },

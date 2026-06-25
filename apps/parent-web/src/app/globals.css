@@ -75,6 +75,11 @@ th { font-weight: 600; }
 .nav .brand { font-weight: 700; font-size: 1.1rem; }
 .nav .spacer { flex: 1; }
 .nav .user { color: #aaa; font-size: 0.9rem; }
+.nav .family-switcher {
+  max-width: 220px;
+  padding: 0.35rem 0.5rem;
+  border-color: #555;
+}
 
 .form-group { margin-bottom: 1rem; }
 .form-group label { display: block; font-weight: 500; margin-bottom: 0.25rem; }

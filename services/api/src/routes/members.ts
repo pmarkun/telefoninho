@@ -13,6 +13,7 @@ import {
   sipAccounts,
 } from "../db/index.js";
 import { markAsteriskConfigPending } from "../asterisk-config-state.js";
+import { requireFamilyAccess, requireMemberAccess } from "../auth-context.js";
 import { generateSipExtension, generateSipPassword, hashSipPassword } from "../sip-auth.js";
 
 function cuid(): string {
@@ -23,6 +24,7 @@ export function registerMemberRoutes(server: FastifyInstance): void {
   server.get<{ Params: { familyId: string } }>(
     "/families/:familyId/members",
     async (req, reply) => {
+      if (!requireFamilyAccess(req, reply, req.params.familyId)) return reply;
       const family = db.select().from(families).where(eq(families.id, req.params.familyId)).get();
       if (!family) {
         return reply.status(404).send({ error: "Family not found" });
@@ -51,6 +53,7 @@ export function registerMemberRoutes(server: FastifyInstance): void {
   server.post<{ Params: { familyId: string } }>(
     "/families/:familyId/members",
     async (req, reply) => {
+      if (!requireFamilyAccess(req, reply, req.params.familyId)) return reply;
       const input = createMemberSchema.parse(req.body);
 
       const family = db.select().from(families).where(eq(families.id, req.params.familyId)).get();
@@ -106,10 +109,8 @@ export function registerMemberRoutes(server: FastifyInstance): void {
     async (req, reply) => {
       const input = updateMemberSchema.parse(req.body);
 
-      const member = db.select().from(familyMembers).where(eq(familyMembers.id, req.params.memberId)).get();
-      if (!member) {
-        return reply.status(404).send({ error: "Member not found" });
-      }
+      const access = requireMemberAccess(req, reply, req.params.memberId);
+      if (!access) return reply;
 
       db.update(familyMembers)
         .set({ ...input, updatedAt: new Date() })
@@ -125,10 +126,8 @@ export function registerMemberRoutes(server: FastifyInstance): void {
   server.delete<{ Params: { memberId: string } }>(
     "/members/:memberId",
     async (req, reply) => {
-      const member = db.select().from(familyMembers).where(eq(familyMembers.id, req.params.memberId)).get();
-      if (!member) {
-        return reply.status(404).send({ error: "Member not found" });
-      }
+      const access = requireMemberAccess(req, reply, req.params.memberId);
+      if (!access) return reply;
 
       db.delete(sipAccounts).where(eq(sipAccounts.familyMemberId, req.params.memberId)).run();
       db.delete(allowedCalls).where(eq(allowedCalls.fromMemberId, req.params.memberId)).run();
