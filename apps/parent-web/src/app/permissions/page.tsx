@@ -92,6 +92,7 @@ export default function PermissionsPage() {
         <a href="/dashboard">Dashboard</a>
         <a href="/members">Membros</a>
         <a href="/permissions">Permissões</a>
+        <a href="/invites">Convites</a>
         <a href="/call-logs">Chamadas</a>
         <span className="spacer" />
         <span className="user">{parentName}</span>

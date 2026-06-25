@@ -70,6 +70,7 @@ export function registerChildRoutes(server: FastifyInstance): void {
         displayName: r.displayName,
         avatarKey: r.avatarKey,
         colorKey: r.colorKey,
+        sipExtension: r.sipExtension,
         sipUri: `sip:${r.sipExtension}@${sipAccount.domain}`,
       }));
 

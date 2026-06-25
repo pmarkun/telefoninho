@@ -2,7 +2,16 @@ import { FastifyInstance } from "fastify";
 import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 import { createMemberSchema, updateMemberSchema } from "@telefoninho/shared/validation";
-import { db, families, familyMembers, sipAccounts, allowedCalls, pairingCodes } from "../db/index.js";
+import {
+  allowedCalls,
+  contactInvites,
+  contactRequests,
+  db,
+  families,
+  familyMembers,
+  pairingCodes,
+  sipAccounts,
+} from "../db/index.js";
 import { generateSipExtension, generateSipPassword, hashSipPassword } from "../sip-auth.js";
 
 function cuid(): string {
@@ -120,6 +129,9 @@ export function registerMemberRoutes(server: FastifyInstance): void {
       db.delete(allowedCalls).where(eq(allowedCalls.fromMemberId, req.params.memberId)).run();
       db.delete(allowedCalls).where(eq(allowedCalls.toMemberId, req.params.memberId)).run();
       db.delete(pairingCodes).where(eq(pairingCodes.familyMemberId, req.params.memberId)).run();
+      db.delete(contactRequests).where(eq(contactRequests.requesterMemberId, req.params.memberId)).run();
+      db.delete(contactRequests).where(eq(contactRequests.targetMemberId, req.params.memberId)).run();
+      db.delete(contactInvites).where(eq(contactInvites.targetMemberId, req.params.memberId)).run();
       db.delete(familyMembers).where(eq(familyMembers.id, req.params.memberId)).run();
 
       return { success: true };

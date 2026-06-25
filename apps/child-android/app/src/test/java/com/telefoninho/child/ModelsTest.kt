@@ -1,6 +1,7 @@
 package com.telefoninho.child
 
 import com.telefoninho.child.data.ContactInfo
+import com.telefoninho.child.data.ContactInviteResponse
 import com.telefoninho.child.data.SipCredentials
 import com.telefoninho.child.data.ChildProfile
 import com.telefoninho.child.data.Screen
@@ -42,6 +43,20 @@ class ModelsTest {
     fun `screen sealed interface variants`() {
         val home = Screen.Home
         assertTrue(home is Screen.Home)
+        val myQr = Screen.MyQr
+        assertTrue(myQr is Screen.MyQr)
+        val scanQr = Screen.ScanQr
+        assertTrue(scanQr is Screen.ScanQr)
+    }
+
+    @Test
+    fun `contact invite response stores qr payload`() {
+        val invite = ContactInviteResponse(
+            token = "token",
+            expiresAt = "2026-06-25T10:00:00.000Z",
+            qrPayload = "{\"type\":\"telefoninho-contact\",\"version\":1,\"token\":\"token\"}",
+        )
+        assertTrue(invite.qrPayload.contains("telefoninho-contact"))
     }
 
     @Test

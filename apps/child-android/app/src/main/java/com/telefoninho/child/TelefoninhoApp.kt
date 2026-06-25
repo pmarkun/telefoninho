@@ -1,18 +1,33 @@
 package com.telefoninho.child
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -23,13 +38,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.Bitmap
+import android.graphics.Color
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.BarcodeScanner
+import com.google.mlkit.vision.common.InputImage
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import com.telefoninho.child.data.CallStatus
 import com.telefoninho.child.data.ContactInfo
 import com.telefoninho.child.data.Screen
@@ -47,6 +73,7 @@ import com.telefoninho.child.ui.PixelTitle
 import com.telefoninho.child.ui.TelefoninhoFrame
 import com.telefoninho.child.viewmodel.AppViewModel
 import kotlinx.coroutines.delay
+import java.util.concurrent.Executors
 
 @Composable
 fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
@@ -55,6 +82,9 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
     val error by viewModel.error.collectAsState()
     val pairingLoading by viewModel.pairingLoading.collectAsState()
     val apiBaseUrl by viewModel.apiBaseUrl.collectAsState()
+    val sipStatus by viewModel.sipStatus.collectAsState()
+    val contactQrPayload by viewModel.contactQrPayload.collectAsState()
+    val contactInviteLoading by viewModel.contactInviteLoading.collectAsState()
     var showServerSettings by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = PixelTheme.bg) {
@@ -106,8 +136,26 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
 
                         is Screen.Home -> HomeScreen(
                             contacts = state.contacts,
+                            sipStatus = sipStatus,
+                            error = error,
                             onCall = { viewModel.callContact(it) },
+                            onOpenMyQr = { viewModel.openMyQr() },
+                            onOpenQrScanner = { viewModel.openQrScanner() },
                             onOpenServerSettings = { showServerSettings = true },
+                        )
+
+                        Screen.MyQr -> MyQrScreen(
+                            payload = contactQrPayload,
+                            loading = contactInviteLoading,
+                            error = error,
+                            onRefresh = { viewModel.generateContactInvite() },
+                            onBack = { viewModel.closeMyQr() },
+                        )
+
+                        Screen.ScanQr -> ScanQrScreen(
+                            error = error,
+                            onResult = { rawValue -> viewModel.claimContactInviteFromQr(rawValue) },
+                            onBack = { viewModel.closeQrScanner() },
                         )
 
                         is Screen.Calling -> CallingScreen(
@@ -165,7 +213,7 @@ private fun PairingScreen(
             if (error != null) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = error, color = Color(0xFFC93F3F),
+                    text = error, color = ComposeColor(0xFFC93F3F),
                     fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
                 )
@@ -179,12 +227,31 @@ private fun PairingScreen(
 @Composable
 private fun HomeScreen(
     contacts: List<ContactInfo>,
+    sipStatus: String,
+    error: String?,
     onCall: (ContactInfo) -> Unit,
+    onOpenMyQr: () -> Unit,
+    onOpenQrScanner: () -> Unit,
     onOpenServerSettings: () -> Unit,
 ) {
-    TelefoninhoFrame(status = "pronto", statusKind = CallStatus.Ready) {
+    val context = LocalContext.current
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) onOpenQrScanner()
+    }
+    val statusKind = if (sipStatus == "SIP conectado") CallStatus.Ready else CallStatus.Calling
+    TelefoninhoFrame(status = sipStatus, statusKind = statusKind) {
         PixelTitle(text = "TELEFONINHO")
         Spacer(modifier = Modifier.height(22.dp))
+        if (error != null) {
+            Text(
+                text = error, color = ComposeColor(0xFFC93F3F),
+                fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
         if (contacts.isEmpty()) {
             Text(
                 text = "NENHUM CONTATO APROVADO", color = PixelTheme.fg,
@@ -195,8 +262,205 @@ private fun HomeScreen(
             ContactGrid(contacts = contacts, onCall = onCall)
         }
         Spacer(modifier = Modifier.height(12.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                PixelButton(text = "MEU QR", onClick = onOpenMyQr)
+            }
+            Box(modifier = Modifier.weight(1f).padding(start = 6.dp)) {
+                PixelButton(
+                    text = "LER QR",
+                    onClick = {
+                        if (ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA,
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            onOpenQrScanner()
+                        } else {
+                            cameraLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
         PixelButton(text = "SERVIDOR", onClick = onOpenServerSettings)
     }
+}
+
+@Composable
+private fun ScanQrScreen(
+    error: String?,
+    onResult: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    TelefoninhoFrame(status = "ler qr", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "LER QR")
+        Spacer(modifier = Modifier.height(18.dp))
+        PixelCard {
+            QrCameraPreview(onResult = onResult)
+            if (error != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = error,
+                    color = ComposeColor(0xFFC93F3F),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "VOLTAR", onClick = onBack)
+    }
+}
+
+@Composable
+private fun QrCameraPreview(onResult: (String) -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val executor = remember { Executors.newSingleThreadExecutor() }
+    DisposableEffect(Unit) {
+        onDispose { executor.shutdown() }
+    }
+
+    AndroidView(
+        factory = { viewContext ->
+            val previewView = PreviewView(viewContext)
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(viewContext)
+
+            cameraProviderFuture.addListener({
+                val cameraProvider = cameraProviderFuture.get()
+                val scanner = BarcodeScanning.getClient()
+                var handled = false
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
+                val analysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .also {
+                        it.setAnalyzer(executor) { imageProxy ->
+                            analyzeQrFrame(
+                                imageProxy = imageProxy,
+                                scanner = scanner,
+                                alreadyHandled = handled,
+                                onHandled = { handled = true },
+                                onResult = {
+                                    onResult(it)
+                                    cameraProvider.unbindAll()
+                                    scanner.close()
+                                },
+                            )
+                        }
+                    }
+
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    preview,
+                    analysis,
+                )
+            }, ContextCompat.getMainExecutor(context))
+
+            previewView
+        },
+        modifier = Modifier.fillMaxWidth().height(280.dp),
+    )
+}
+
+private fun analyzeQrFrame(
+    imageProxy: ImageProxy,
+    scanner: BarcodeScanner,
+    alreadyHandled: Boolean,
+    onHandled: () -> Unit,
+    onResult: (String) -> Unit,
+) {
+    val mediaImage = imageProxy.image
+    if (mediaImage == null || alreadyHandled) {
+        imageProxy.close()
+        return
+    }
+
+    val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+    scanner.process(image)
+        .addOnSuccessListener { barcodes ->
+            val rawValue = barcodes.firstOrNull()?.rawValue
+            if (rawValue != null) {
+                onHandled()
+                onResult(rawValue)
+            }
+        }
+        .addOnCompleteListener {
+            imageProxy.close()
+        }
+}
+
+@Composable
+private fun MyQrScreen(
+    payload: String?,
+    loading: Boolean,
+    error: String?,
+    onRefresh: () -> Unit,
+    onBack: () -> Unit,
+) {
+    TelefoninhoFrame(status = "convite", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "MEU QR")
+        Spacer(modifier = Modifier.height(22.dp))
+        PixelCard {
+            if (payload == null || loading) {
+                Text(
+                    text = "GERANDO QR...", color = PixelTheme.fg,
+                    fontSize = 18.sp, fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                val bitmap = remember(payload) { createQrBitmap(payload) }
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "QR de convite de contato",
+                    modifier = Modifier.size(248.dp),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "MOSTRE PARA ADICIONAR",
+                    color = PixelTheme.fg,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            if (error != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = error,
+                    color = ComposeColor(0xFFC93F3F),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "NOVO QR", enabled = !loading, onClick = onRefresh)
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "VOLTAR", onClick = onBack)
+    }
+}
+
+private fun createQrBitmap(payload: String): Bitmap {
+    val size = 512
+    val matrix = QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, size, size)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+    for (x in 0 until size) {
+        for (y in 0 until size) {
+            bitmap.setPixel(x, y, if (matrix[x, y]) Color.BLACK else Color.WHITE)
+        }
+    }
+    return bitmap
 }
 
 @Composable
@@ -241,7 +505,7 @@ private fun ServerSettingsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Use http:// ou https://",
-                    color = Color(0xFFC93F3F),
+                    color = ComposeColor(0xFFC93F3F),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
