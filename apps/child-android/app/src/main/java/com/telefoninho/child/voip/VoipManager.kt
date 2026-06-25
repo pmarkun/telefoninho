@@ -38,6 +38,7 @@ class VoipManager(private val context: Context) {
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var speakerMode = true
 
     fun start(credentials: SipCredentials) {
         executor.execute {
@@ -58,6 +59,14 @@ class VoipManager(private val context: Context) {
             core?.removeListener(coreListener)
             core?.stop()
             core = null
+        }
+    }
+
+    fun setSpeakerMode(enabled: Boolean) {
+        executor.execute {
+            speakerMode = enabled
+            val c = core ?: return@execute
+            enableAudio(c, activeCall ?: c.currentCall)
         }
     }
 
@@ -237,23 +246,35 @@ class VoipManager(private val context: Context) {
             c.activateAudioSession(true)
             c.isMicEnabled = true
             val microphone = c.audioDevices.firstOrNull { it.type == AudioDevice.Type.Microphone }
-            val speaker = c.audioDevices.firstOrNull { it.type == AudioDevice.Type.Speaker }
+            val output = selectOutputDevice(c)
             if (microphone != null) {
                 c.setInputAudioDevice(microphone)
                 call?.setInputAudioDevice(microphone)
             }
-            if (speaker != null) {
-                c.setOutputAudioDevice(speaker)
-                call?.setOutputAudioDevice(speaker)
+            if (output != null) {
+                c.setOutputAudioDevice(output)
+                call?.setOutputAudioDevice(output)
             }
             call?.setMicrophoneMuted(false)
             call?.setSpeakerMuted(false)
             Log.i(
                 TAG,
-                "Audio enabled mic=${c.isMicEnabled} input=${microphone?.deviceName ?: "default"} output=${speaker?.deviceName ?: "default"} call=${call?.state}",
+                "Audio enabled mic=${c.isMicEnabled} speakerMode=$speakerMode input=${microphone?.deviceName ?: "default"} output=${output?.deviceName ?: "default"} call=${call?.state}",
             )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to enable audio", e)
+        }
+    }
+
+    private fun selectOutputDevice(c: Core): AudioDevice? {
+        if (speakerMode) {
+            return c.audioDevices.firstOrNull { it.type == AudioDevice.Type.Speaker }
+        }
+        return c.audioDevices.firstOrNull {
+            it.type.name.equals("Earpiece", ignoreCase = true) ||
+                it.deviceName.contains("earpiece", ignoreCase = true)
+        } ?: c.audioDevices.firstOrNull {
+            it.type != AudioDevice.Type.Speaker && it.type != AudioDevice.Type.Microphone
         }
     }
 

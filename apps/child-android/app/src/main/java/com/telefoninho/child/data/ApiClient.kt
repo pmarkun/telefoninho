@@ -43,10 +43,13 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
         withContext(Dispatchers.IO) {
             val conn = URL("$baseUrl/members/$memberId/contact-invite").openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
             conn.connectTimeout = 10_000
             conn.readTimeout = 10_000
 
             try {
+                conn.outputStream.use { it.write(JSONObject().toString().toByteArray(Charsets.UTF_8)) }
                 val responseCode = conn.responseCode
                 if (responseCode != 200) {
                     val error = conn.errorStream?.bufferedReader()?.readText() ?: "Unknown error"
@@ -58,6 +61,27 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
                     expiresAt = json.getString("expiresAt"),
                     qrPayload = json.getJSONObject("qrPayload").toString(),
                 )
+            } finally {
+                conn.disconnect()
+            }
+        }
+
+    suspend fun getChildConfig(token: String): PairingResponse =
+        withContext(Dispatchers.IO) {
+            val conn = URL("$baseUrl/child/config").openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 10_000
+
+            try {
+                val responseCode = conn.responseCode
+                if (responseCode != 200) {
+                    val error = conn.errorStream?.bufferedReader()?.readText() ?: "Unknown error"
+                    throw Exception("Refresh failed ($responseCode): $error")
+                }
+                val json = conn.inputStream.bufferedReader().readText()
+                parsePairingResponse(JSONObject(json))
             } finally {
                 conn.disconnect()
             }
@@ -98,6 +122,7 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
         val settings = json.optJSONObject("settings") ?: JSONObject()
 
         return PairingResponse(
+            token = json.optString("token").takeIf { it.isNotBlank() },
             profile = ChildProfile(
                 memberId = profile.getString("memberId"),
                 displayName = profile.getString("displayName"),

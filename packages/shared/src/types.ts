@@ -38,6 +38,7 @@ export type ChildProfile = {
 };
 
 export type PairingResponse = {
+  token: string;
   profile: ChildProfile;
   sip: SipCredentials;
   contacts: ContactInfo[];

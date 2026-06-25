@@ -47,6 +47,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _contactInviteLoading = MutableStateFlow(false)
     val contactInviteLoading: StateFlow<Boolean> = _contactInviteLoading.asStateFlow()
 
+    private val _refreshContactsLoading = MutableStateFlow(false)
+    val refreshContactsLoading: StateFlow<Boolean> = _refreshContactsLoading.asStateFlow()
+
+    private val _speakerMode = MutableStateFlow(true)
+    val speakerMode: StateFlow<Boolean> = _speakerMode.asStateFlow()
+
     private var sipCredentials: SipCredentials? = null
 
     private val voipListener = object : VoipListener {
@@ -97,12 +103,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     init {
         voipManager.listener = voipListener
         observeApiBaseUrl()
+        observeSpeakerMode()
         checkPaired()
     }
 
     private fun observeApiBaseUrl() {
         viewModelScope.launch {
             configStore.apiBaseUrl.collect { _apiBaseUrl.value = it }
+        }
+    }
+
+    private fun observeSpeakerMode() {
+        viewModelScope.launch {
+            configStore.speakerMode.collect {
+                _speakerMode.value = it
+                voipManager.setSpeakerMode(it)
+            }
         }
     }
 
@@ -139,6 +155,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val response = ApiClient(baseUrl).claimPairing(code, deviceName, deviceId)
 
                 val config = AppConfig(
+                    token = response.token,
                     profile = response.profile,
                     sip = response.sip,
                     contacts = response.contacts,
@@ -159,6 +176,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _pairingLoading.value = false
             }
         }
+    }
+
+    fun openSettings() {
+        _screen.value = Screen.Settings
+    }
+
+    fun closeSettings() {
+        _screen.value = Screen.Home
     }
 
     fun callContact(contact: ContactInfo) {
@@ -226,15 +251,37 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     token = payload.getString("token"),
                     requesterMemberId = profile.memberId,
                 )
-                _error.value = if (status == "auto_approved") {
-                    "Contato adicionado"
+                if (status == "auto_approved") {
+                    refreshContactsAfterInvite()
                 } else {
-                    "Pedido enviado aos pais"
+                    _error.value = "Pedido enviado aos pais"
                 }
                 _screen.value = Screen.Home
             } catch (e: Exception) {
                 _error.value = e.message ?: "Erro ao ler QR"
             }
+        }
+    }
+
+    fun refreshContacts() {
+        if (_refreshContactsLoading.value) return
+        _refreshContactsLoading.value = true
+        _error.value = null
+        viewModelScope.launch {
+            try {
+                refreshContactsFromServer()
+                _error.value = "Contatos atualizados"
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Erro ao atualizar contatos"
+            } finally {
+                _refreshContactsLoading.value = false
+            }
+        }
+    }
+
+    fun setSpeakerMode(enabled: Boolean) {
+        viewModelScope.launch {
+            configStore.saveSpeakerMode(enabled)
         }
     }
 
@@ -268,6 +315,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             configStore.resetApiBaseUrl()
             _error.value = null
         }
+    }
+
+    private suspend fun refreshContactsAfterInvite() {
+        try {
+            refreshContactsFromServer()
+            _error.value = "Contato adicionado"
+        } catch (_: Exception) {
+            _error.value = "Contato adicionado. Atualize contatos."
+        }
+    }
+
+    private suspend fun refreshContactsFromServer() {
+        val currentConfig = configStore.loadConfig()
+            ?: throw IllegalStateException("Config local ausente")
+        val token = currentConfig.token
+            ?: throw IllegalStateException("Repareie este aparelho para atualizar contatos")
+        val baseUrl = configStore.apiBaseUrl.first()
+        val response = ApiClient(baseUrl).getChildConfig(token)
+        val updatedConfig = AppConfig(
+            token = token,
+            profile = response.profile,
+            sip = response.sip,
+            contacts = response.contacts,
+            settings = response.settings,
+        )
+        configStore.saveConfig(updatedConfig)
+        sipCredentials = updatedConfig.sip
+        _uiState.value = UiState.Ready(updatedConfig.profile, updatedConfig.contacts)
     }
 
     override fun onCleared() {

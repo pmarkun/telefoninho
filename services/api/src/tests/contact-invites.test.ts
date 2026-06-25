@@ -67,6 +67,19 @@ beforeEach(() => {
 });
 
 describe("contact invite routes", () => {
+  it("creates contact invites from an empty json payload", async () => {
+    const server = createServer();
+    const response = await server.inject({
+      method: "POST",
+      url: "/members/adult_1/contact-invite",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().qrPayload.type).toBe("telefoninho-contact");
+    await server.close();
+  });
+
   it("rejects invalid tokens", async () => {
     const server = createServer();
     const response = await server.inject({

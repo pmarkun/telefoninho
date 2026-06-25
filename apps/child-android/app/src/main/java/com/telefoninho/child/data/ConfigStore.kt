@@ -18,6 +18,7 @@ private val Context.store: DataStore<Preferences> by preferencesDataStore(name =
 private const val KEY_CONFIG = "app_config"
 private const val KEY_PAIRED = "is_paired"
 private const val KEY_API_BASE_URL = "api_base_url"
+private const val KEY_SPEAKER_MODE = "speaker_mode"
 
 class ConfigStore(private val context: Context) {
 
@@ -27,6 +28,10 @@ class ConfigStore(private val context: Context) {
 
     val apiBaseUrl: Flow<String> = context.store.data.map { prefs ->
         prefs[stringPreferencesKey(KEY_API_BASE_URL)] ?: BuildConfig.API_BASE_URL
+    }
+
+    val speakerMode: Flow<Boolean> = context.store.data.map { prefs ->
+        prefs[stringPreferencesKey(KEY_SPEAKER_MODE)]?.toBoolean() ?: true
     }
 
     suspend fun saveConfig(config: AppConfig) {
@@ -57,6 +62,12 @@ class ConfigStore(private val context: Context) {
         }
     }
 
+    suspend fun saveSpeakerMode(value: Boolean) {
+        context.store.edit { prefs ->
+            prefs[stringPreferencesKey(KEY_SPEAKER_MODE)] = value.toString()
+        }
+    }
+
     suspend fun clear() {
         context.store.edit { it.clear() }
     }
@@ -80,6 +91,7 @@ class ConfigStore(private val context: Context) {
             }
         }
         return JSONObject().apply {
+            config.token?.let { put("token", it) }
             put("profile", JSONObject().apply {
                 put("memberId", config.profile.memberId)
                 put("displayName", config.profile.displayName)
@@ -126,6 +138,7 @@ class ConfigStore(private val context: Context) {
         }
 
         return AppConfig(
+            token = json.optString("token").takeIf { it.isNotBlank() },
             profile = ChildProfile(
                 memberId = profile.getString("memberId"),
                 displayName = profile.getString("displayName"),

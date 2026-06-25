@@ -32,6 +32,7 @@ data class AppSettings(
 )
 
 data class PairingResponse(
+    val token: String?,
     val profile: ChildProfile,
     val sip: SipCredentials,
     val contacts: List<ContactInfo>,
@@ -45,6 +46,7 @@ data class ContactInviteResponse(
 )
 
 data class AppConfig(
+    val token: String?,
     val profile: ChildProfile,
     val sip: SipCredentials,
     val contacts: List<ContactInfo>,
@@ -54,6 +56,7 @@ data class AppConfig(
 sealed interface Screen {
     data object Pairing : Screen
     data object Home : Screen
+    data object Settings : Screen
     data object MyQr : Screen
     data object ScanQr : Screen
     data class Calling(val contact: ContactInfo) : Screen

@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -67,6 +68,7 @@ import com.telefoninho.child.ui.ContactGrid
 import com.telefoninho.child.ui.PixelButton
 import com.telefoninho.child.ui.PixelCard
 import com.telefoninho.child.ui.PixelClock
+import com.telefoninho.child.ui.PixelIconButton
 import com.telefoninho.child.ui.PixelTextInput
 import com.telefoninho.child.ui.PixelTheme
 import com.telefoninho.child.ui.PixelTitle
@@ -85,6 +87,8 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
     val sipStatus by viewModel.sipStatus.collectAsState()
     val contactQrPayload by viewModel.contactQrPayload.collectAsState()
     val contactInviteLoading by viewModel.contactInviteLoading.collectAsState()
+    val refreshContactsLoading by viewModel.refreshContactsLoading.collectAsState()
+    val speakerMode by viewModel.speakerMode.collectAsState()
     var showServerSettings by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = PixelTheme.bg) {
@@ -141,7 +145,19 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             onCall = { viewModel.callContact(it) },
                             onOpenMyQr = { viewModel.openMyQr() },
                             onOpenQrScanner = { viewModel.openQrScanner() },
+                            onOpenSettings = { viewModel.openSettings() },
+                        )
+
+                        Screen.Settings -> SettingsScreen(
+                            speakerMode = speakerMode,
+                            refreshLoading = refreshContactsLoading,
+                            error = error,
                             onOpenServerSettings = { showServerSettings = true },
+                            onToggleSpeaker = { viewModel.setSpeakerMode(it) },
+                            onRefreshContacts = { viewModel.refreshContacts() },
+                            onOpenMyQr = { viewModel.openMyQr() },
+                            onOpenQrScanner = { viewModel.openQrScanner() },
+                            onBack = { viewModel.closeSettings() },
                         )
 
                         Screen.MyQr -> MyQrScreen(
@@ -232,18 +248,18 @@ private fun HomeScreen(
     onCall: (ContactInfo) -> Unit,
     onOpenMyQr: () -> Unit,
     onOpenQrScanner: () -> Unit,
-    onOpenServerSettings: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) onOpenQrScanner()
-    }
     val statusKind = if (sipStatus == "SIP conectado") CallStatus.Ready else CallStatus.Calling
     TelefoninhoFrame(status = sipStatus, statusKind = statusKind) {
         PixelTitle(text = "TELEFONINHO")
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+        HomeQuickActions(
+            onOpenMyQr = onOpenMyQr,
+            onOpenQrScanner = onOpenQrScanner,
+            onOpenSettings = onOpenSettings,
+        )
+        Spacer(modifier = Modifier.height(18.dp))
         if (error != null) {
             Text(
                 text = error, color = ComposeColor(0xFFC93F3F),
@@ -261,30 +277,107 @@ private fun HomeScreen(
         } else {
             ContactGrid(contacts = contacts, onCall = onCall)
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Box(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
-                PixelButton(text = "MEU QR", onClick = onOpenMyQr)
+    }
+}
+
+@Composable
+private fun HomeQuickActions(
+    onOpenMyQr: () -> Unit,
+    onOpenQrScanner: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PixelIconButton(text = "QR", onClick = onOpenMyQr)
+        ScanQrIconButton(text = "SCAN", onOpenQrScanner = onOpenQrScanner)
+        PixelIconButton(text = "⚙", onClick = onOpenSettings)
+    }
+}
+
+@Composable
+private fun ScanQrIconButton(text: String, onOpenQrScanner: () -> Unit) {
+    val context = LocalContext.current
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) onOpenQrScanner()
+    }
+    PixelIconButton(
+        text = text,
+        onClick = {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.CAMERA,
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                onOpenQrScanner()
+            } else {
+                cameraLauncher.launch(Manifest.permission.CAMERA)
             }
-            Box(modifier = Modifier.weight(1f).padding(start = 6.dp)) {
-                PixelButton(
-                    text = "LER QR",
-                    onClick = {
-                        if (ContextCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.CAMERA,
-                            ) == PackageManager.PERMISSION_GRANTED
-                        ) {
-                            onOpenQrScanner()
-                        } else {
-                            cameraLauncher.launch(Manifest.permission.CAMERA)
-                        }
+        },
+    )
+}
+
+@Composable
+private fun SettingsScreen(
+    speakerMode: Boolean,
+    refreshLoading: Boolean,
+    error: String?,
+    onOpenServerSettings: () -> Unit,
+    onToggleSpeaker: (Boolean) -> Unit,
+    onRefreshContacts: () -> Unit,
+    onOpenMyQr: () -> Unit,
+    onOpenQrScanner: () -> Unit,
+    onBack: () -> Unit,
+) {
+    TelefoninhoFrame(status = "config", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "CONFIG")
+        Spacer(modifier = Modifier.height(18.dp))
+        PixelCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PixelIconButton(text = "QR", onClick = onOpenMyQr)
+                ScanQrIconButton(text = "SCAN", onOpenQrScanner = onOpenQrScanner)
+            }
+            if (error != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = error,
+                    color = if (error.contains("atualizado", ignoreCase = true) ||
+                        error.contains("adicionado", ignoreCase = true)
+                    ) {
+                        PixelTheme.fg
+                    } else {
+                        ComposeColor(0xFFC93F3F)
                     },
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(text = "SERVIDOR", onClick = onOpenServerSettings)
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(
+            text = if (speakerMode) "AUDIO: SPEAKER" else "AUDIO: FONE",
+            onClick = { onToggleSpeaker(!speakerMode) },
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(
+            text = if (refreshLoading) "ATUALIZANDO..." else "ATUALIZAR CONTATOS",
+            enabled = !refreshLoading,
+            onClick = onRefreshContacts,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "VOLTAR", onClick = onBack)
     }
 }
 

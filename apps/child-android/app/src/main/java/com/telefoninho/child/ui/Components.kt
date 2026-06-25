@@ -79,6 +79,38 @@ fun PixelButton(
 }
 
 @Composable
+fun PixelIconButton(
+    text: String,
+    enabled: Boolean = true,
+    danger: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val bg = when {
+        !enabled -> Color(0xFF9DAA96)
+        danger -> Color(0xFFC93F3F)
+        else -> PixelTheme.accent
+    }
+    Box(
+        modifier = Modifier.size(64.dp)
+            .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
+            .background(bg)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+        )
+    }
+}
+
+@Composable
 fun PixelCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().pixelSurface().padding(16.dp),

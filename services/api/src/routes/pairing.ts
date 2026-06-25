@@ -4,6 +4,18 @@ import { eq, and } from "drizzle-orm";
 import { claimPairingSchema } from "@telefoninho/shared/validation";
 import { db, familyMembers, sipAccounts, pairingCodes, allowedCalls } from "../db/index.js";
 
+const DEV_JWT_SECRET = process.env.JWT_SECRET || "change-me-dev";
+
+function signToken(payload: Record<string, string>): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto
+    .createHmac("sha256", DEV_JWT_SECRET)
+    .update(`${header}.${body}`)
+    .digest("base64url");
+  return `${header}.${body}.${signature}`;
+}
+
 function generatePairingCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -116,6 +128,7 @@ export function registerPairingRoutes(server: FastifyInstance): void {
       }));
 
     return {
+      token: signToken({ sub: member.id, kind: member.kind }),
       profile: {
         memberId: member.id,
         displayName: member.displayName,

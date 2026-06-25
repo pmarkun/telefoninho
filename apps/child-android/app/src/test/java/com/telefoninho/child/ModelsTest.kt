@@ -47,6 +47,8 @@ class ModelsTest {
         assertTrue(myQr is Screen.MyQr)
         val scanQr = Screen.ScanQr
         assertTrue(scanQr is Screen.ScanQr)
+        val settings = Screen.Settings
+        assertTrue(settings is Screen.Settings)
     }
 
     @Test
