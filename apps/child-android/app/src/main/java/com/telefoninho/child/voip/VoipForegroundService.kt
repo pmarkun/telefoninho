@@ -248,5 +248,9 @@ class VoipForegroundService : Service() {
                 context.startService(intent)
             }
         }
+
+        fun stop(context: Context) {
+            context.stopService(Intent(context, VoipForegroundService::class.java))
+        }
     }
 }

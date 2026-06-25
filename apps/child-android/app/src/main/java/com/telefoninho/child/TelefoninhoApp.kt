@@ -103,12 +103,17 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
         if (showServerSettings) {
             ServerSettingsScreen(
                 currentUrl = apiBaseUrl,
+                canUnpair = uiState is UiState.Ready,
                 onSave = {
                     viewModel.saveApiBaseUrl(it)
                     showServerSettings = false
                 },
                 onReset = {
                     viewModel.resetApiBaseUrl()
+                    showServerSettings = false
+                },
+                onUnpair = {
+                    viewModel.unpairDevice()
                     showServerSettings = false
                 },
                 onBack = { showServerSettings = false },
@@ -764,8 +769,10 @@ private fun createQrBitmap(payload: String): Bitmap {
 @Composable
 private fun ServerSettingsScreen(
     currentUrl: String,
+    canUnpair: Boolean,
     onSave: (String) -> Unit,
     onReset: () -> Unit,
+    onUnpair: () -> Unit,
     onBack: () -> Unit,
 ) {
     var value by remember(currentUrl) { mutableStateOf(currentUrl) }
@@ -815,6 +822,10 @@ private fun ServerSettingsScreen(
         PixelButton(text = "SALVAR", enabled = valid, onClick = { onSave(normalized) })
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(text = "PADRAO", danger = true, onClick = onReset)
+        if (canUnpair) {
+            Spacer(modifier = Modifier.height(12.dp))
+            PixelButton(text = "DESPAREAR", danger = true, onClick = onUnpair)
+        }
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(text = "VOLTAR", onClick = onBack)
     }

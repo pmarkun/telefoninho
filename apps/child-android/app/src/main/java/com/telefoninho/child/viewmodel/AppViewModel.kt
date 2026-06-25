@@ -437,6 +437,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun unpairDevice() {
+        activeSpecialService?.stop()
+        activeSpecialService = null
+        VoipSession.stop()
+        VoipForegroundService.stop(getApplication())
+        sipCredentials = null
+        _contactQrPayload.value = null
+        _error.value = null
+        _sipStatus.value = "SIP desconectado"
+        _screen.value = Screen.Pairing
+        _uiState.value = UiState.Pairing
+        viewModelScope.launch {
+            configStore.clearPairing()
+        }
+    }
+
     private suspend fun refreshContactsAfterInvite() {
         try {
             refreshContactsFromServer()

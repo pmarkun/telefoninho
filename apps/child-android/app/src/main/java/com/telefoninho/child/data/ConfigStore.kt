@@ -90,6 +90,13 @@ class ConfigStore(private val context: Context) {
         }
     }
 
+    suspend fun clearPairing() {
+        context.store.edit { prefs ->
+            prefs.remove(stringPreferencesKey(KEY_CONFIG))
+            prefs[stringPreferencesKey(KEY_PAIRED)] = "false"
+        }
+    }
+
     suspend fun clear() {
         context.store.edit { it.clear() }
     }
