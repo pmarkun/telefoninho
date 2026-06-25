@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import org.json.JSONTokener
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val configStore = ConfigStore(application)
@@ -237,7 +238,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val profile = (_uiState.value as? UiState.Ready)?.profile ?: return
         viewModelScope.launch {
             try {
-                val payload = JSONObject(rawValue)
+                val payload = parseContactQrPayload(rawValue)
                 if (
                     payload.optString("type") != "telefoninho-contact" ||
                     payload.optInt("version") != 1
@@ -261,6 +262,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _error.value = e.message ?: "Erro ao ler QR"
             }
         }
+    }
+
+    private fun parseContactQrPayload(rawValue: String): JSONObject {
+        val parsedValue = JSONTokener(rawValue).nextValue()
+        val parsed = when (parsedValue) {
+            is JSONObject -> parsedValue
+            is String -> JSONObject(parsedValue)
+            else -> throw IllegalArgumentException("QR nao e convite do Telefoninho")
+        }
+        val stringified = parsed.optString("qrPayload").takeIf { it.isNotBlank() }
+            ?: parsed.optString("payload").takeIf { it.isNotBlank() }
+        return if (stringified != null) JSONObject(stringified) else parsed
     }
 
     fun refreshContacts() {

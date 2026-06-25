@@ -127,7 +127,8 @@ export default function InvitesPage() {
     try {
       const res = await fetch(`${API}/members/${selectedOwnerId}/contact-invite`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({}),
       });
       if (!res.ok) { notify("Erro ao gerar QR", "error"); return; }
       const data: InviteResponse = await res.json();
