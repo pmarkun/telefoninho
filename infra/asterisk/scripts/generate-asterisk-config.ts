@@ -90,8 +90,9 @@ function generate() {
 
     pjsipLines += `[${acc.extension}]\n`;
     pjsipLines += `type=aor\n`;
-    pjsipLines += `max_contacts=5\n`;
-    pjsipLines += `remove_existing=yes\n\n`;
+    pjsipLines += `max_contacts=1\n`;
+    pjsipLines += `remove_existing=yes\n`;
+    pjsipLines += `remove_unavailable=yes\n\n`;
   }
 
   writeFileSync(resolve(CONFIG_DIR, "pjsip.generated.conf"), pjsipLines);

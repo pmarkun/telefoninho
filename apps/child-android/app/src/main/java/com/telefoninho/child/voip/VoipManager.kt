@@ -31,6 +31,7 @@ interface VoipListener {
 class VoipManager(private val context: Context) {
     private val factory = Factory.instance()
     private var core: Core? = null
+    private var activeCall: Call? = null
     var listener: VoipListener? = null
 
     private val executor = Executors.newSingleThreadExecutor()
@@ -66,7 +67,7 @@ class VoipManager(private val context: Context) {
 
                 val params: CallParams = c.createCallParams(null) ?: return@execute
                 params.videoDirection = MediaDirection.Inactive
-                c.inviteAddressWithParams(address, params)
+                activeCall = c.inviteAddressWithParams(address, params)
             } catch (e: Exception) {
                 postOnMain { listener?.onCallFailed("Falha ao ligar: ${e.message}") }
             }
@@ -75,7 +76,7 @@ class VoipManager(private val context: Context) {
 
     fun acceptCall() {
         executor.execute {
-            val current = core?.currentCall ?: return@execute
+            val current = activeCall ?: core?.currentCall ?: return@execute
             val params = core?.createCallParams(current)
             if (params != null) {
                 params.videoDirection = MediaDirection.Inactive
@@ -88,13 +89,17 @@ class VoipManager(private val context: Context) {
 
     fun declineCall() {
         executor.execute {
-            core?.currentCall?.decline(Reason.Declined)
+            val current = activeCall ?: core?.currentCall ?: return@execute
+            current.decline(Reason.Declined)
+            activeCall = null
         }
     }
 
     fun hangup() {
         executor.execute {
-            core?.currentCall?.terminate()
+            val current = activeCall ?: core?.currentCall ?: return@execute
+            current.terminate()
+            activeCall = null
         }
     }
 
@@ -148,16 +153,24 @@ class VoipManager(private val context: Context) {
         override fun onCallStateChanged(c: Core, call: Call, state: Call.State, message: String) {
             when (state) {
                 Call.State.IncomingReceived -> {
+                    activeCall = call
                     val ext = call.remoteAddress?.username
                     postOnMain { listener?.onCallReceived(ext ?: "Desconhecido") }
                 }
                 Call.State.Connected, Call.State.StreamsRunning -> {
+                    activeCall = call
                     postOnMain { listener?.onCallConnected() }
                 }
                 Call.State.End, Call.State.Released -> {
+                    if (activeCall == call) {
+                        activeCall = null
+                    }
                     postOnMain { listener?.onCallEnded() }
                 }
                 Call.State.Error -> {
+                    if (activeCall == call) {
+                        activeCall = null
+                    }
                     postOnMain { listener?.onCallFailed(message) }
                 }
                 else -> {}
