@@ -7,6 +7,7 @@ import android.util.Log
 import com.telefoninho.child.data.SipCredentials
 import org.linphone.core.Account
 import org.linphone.core.Address
+import org.linphone.core.AudioDevice
 import org.linphone.core.AuthInfo
 import org.linphone.core.Call
 import org.linphone.core.CallParams
@@ -235,9 +236,22 @@ class VoipManager(private val context: Context) {
         try {
             c.activateAudioSession(true)
             c.isMicEnabled = true
+            val microphone = c.audioDevices.firstOrNull { it.type == AudioDevice.Type.Microphone }
+            val speaker = c.audioDevices.firstOrNull { it.type == AudioDevice.Type.Speaker }
+            if (microphone != null) {
+                c.setInputAudioDevice(microphone)
+                call?.setInputAudioDevice(microphone)
+            }
+            if (speaker != null) {
+                c.setOutputAudioDevice(speaker)
+                call?.setOutputAudioDevice(speaker)
+            }
             call?.setMicrophoneMuted(false)
             call?.setSpeakerMuted(false)
-            Log.i(TAG, "Audio enabled mic=${c.isMicEnabled} call=${call?.state}")
+            Log.i(
+                TAG,
+                "Audio enabled mic=${c.isMicEnabled} input=${microphone?.deviceName ?: "default"} output=${speaker?.deviceName ?: "default"} call=${call?.state}",
+            )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to enable audio", e)
         }
