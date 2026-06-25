@@ -1,3 +1,9 @@
+{$SITE_DOMAIN} {
+  encode gzip zstd
+  root * /srv/site
+  file_server
+}
+
 {$APP_DOMAIN} {
   encode gzip zstd
   reverse_proxy parent-web:3000
@@ -7,4 +13,3 @@
   encode gzip zstd
   reverse_proxy api:3001
 }
-

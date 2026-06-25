@@ -80,7 +80,6 @@ rsync -az --delete \
   --exclude='**/.next' \
   --exclude='**/build' \
   --exclude='services/api/dev.db*' \
-  --exclude='infra/caddy/Caddyfile' \
   --exclude='infra/asterisk/config/*.generated.conf' \
   --exclude='infra/asterisk/config/pjsip.transport.local.conf' \
   ./ "$REMOTE:$REMOTE_DIR/"
