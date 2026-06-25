@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "node -e \"console.log('lint not configured yet for @telefoninho/parent-web')\"",
+    "lint": "eslint src/",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -15,9 +15,12 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.7.0",
     "@types/react": "^18.3.12",
-    "tailwindcss": "^3.4.10"
+    "eslint": "^9.39.4",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.62.0"
   }
 }

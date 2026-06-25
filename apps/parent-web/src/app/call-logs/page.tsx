@@ -28,7 +28,6 @@ const statusLabels: Record<string, string> = {
 export default function CallLogsPage() {
   const router = useRouter();
   const { notify } = useNotify();
-  const [token, setToken] = useState("");
   const [parentName, setParentName] = useState("");
   const [logs, setLogs] = useState<CallLog[]>([]);
 
@@ -36,7 +35,6 @@ export default function CallLogsPage() {
     const t = localStorage.getItem("token");
     const pn = localStorage.getItem("parentName");
     if (!t) { router.push("/login"); return; }
-    setToken(t);
     setParentName(pn || "");
 
     fetch(`${API}/admin/call-logs`, {

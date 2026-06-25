@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useNotify } from "../notify-context";
 
@@ -23,20 +23,20 @@ interface Rule {
 export default function PermissionsPage() {
   const router = useRouter();
   const { notify } = useNotify();
-  const [token, setToken] = useState("");
   const [parentName, setParentName] = useState("");
-  const [familyId, setFamilyId] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const tokenRef = useRef("");
 
   useEffect(() => {
     const t = localStorage.getItem("token");
     const pn = localStorage.getItem("parentName");
     if (!t) { router.push("/login"); return; }
-    setToken(t);
+    tokenRef.current = t;
     setParentName(pn || "");
-    loadPermissions(t, setFamilyId, setMembers, setRules, notify);
+    loadPermissions(t, setMembers, setRules, notify);
   }, [router, notify]);
 
   const getRule = useCallback(
@@ -59,7 +59,7 @@ export default function PermissionsPage() {
     try {
       const res = await fetch(`${API}/allowed-calls`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenRef.current}` },
         body: JSON.stringify({ fromMemberId: fromId, toMemberId: toId, enabled: newEnabled }),
       });
       if (!res.ok) {
@@ -162,7 +162,6 @@ export default function PermissionsPage() {
 
 async function loadPermissions(
   token: string,
-  setFamilyId: (v: string) => void,
   setMembers: (v: Member[]) => void,
   setRules: (v: Rule[]) => void,
   notify: (msg: string, type?: "success" | "error" | "info") => void,
@@ -175,7 +174,6 @@ async function loadPermissions(
     const families: { id: string }[] = await familiesRes.json();
     if (families.length === 0) { notify("Nenhuma família encontrada", "error"); return; }
     const fid = families[0].id;
-    setFamilyId(fid);
 
     const permRes = await fetch(`${API}/families/${fid}/permissions`, {
       headers: { Authorization: `Bearer ${token}` },
