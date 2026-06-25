@@ -10,8 +10,9 @@ import com.telefoninho.child.data.ContactInfo
 import com.telefoninho.child.data.Screen
 import com.telefoninho.child.data.SipCredentials
 import com.telefoninho.child.data.UiState
+import com.telefoninho.child.voip.VoipForegroundService
 import com.telefoninho.child.voip.VoipListener
-import com.telefoninho.child.voip.VoipManager
+import com.telefoninho.child.voip.VoipSession
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +23,6 @@ import org.json.JSONTokener
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val configStore = ConfigStore(application)
-    val voipManager = VoipManager(application)
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -102,7 +102,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
-        voipManager.listener = voipListener
+        VoipSession.addListener(voipListener)
         observeApiBaseUrl()
         observeSpeakerMode()
         checkPaired()
@@ -118,7 +118,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             configStore.speakerMode.collect {
                 _speakerMode.value = it
-                voipManager.setSpeakerMode(it)
+                VoipSession.setSpeakerMode(it)
             }
         }
     }
@@ -133,7 +133,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = UiState.Ready(config.profile, config.contacts)
                     _screen.value = Screen.Home
                     _sipStatus.value = "SIP conectando"
-                    voipManager.start(config.sip)
+                    VoipSession.start(getApplication(), config.sip)
+                    VoipForegroundService.start(getApplication())
                 } else {
                     _uiState.value = UiState.Pairing
                 }
@@ -170,7 +171,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _screen.value = Screen.Home
 
                 _sipStatus.value = "SIP conectando"
-                voipManager.start(config.sip)
+                VoipSession.start(getApplication(), config.sip)
+                VoipForegroundService.start(getApplication())
             } catch (e: Exception) {
                 _error.value = e.message ?: "Erro de conexão"
             } finally {
@@ -193,7 +195,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         _screen.value = Screen.Calling(contact)
-        voipManager.call(contact.sipExtension)
+        VoipSession.call(contact.sipExtension)
     }
 
     fun openMyQr() {
@@ -299,17 +301,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun acceptCall() {
-        voipManager.acceptCall()
+        VoipSession.acceptCall()
     }
 
     fun declineCall() {
-        voipManager.declineCall()
+        VoipSession.declineCall()
         _screen.value = Screen.Home
     }
 
     fun hangup() {
         _screen.value = Screen.Home
-        voipManager.hangup()
+        VoipSession.hangup()
     }
 
     fun clearError() {
@@ -360,6 +362,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
-        voipManager.stop()
+        VoipSession.removeListener(voipListener)
     }
 }

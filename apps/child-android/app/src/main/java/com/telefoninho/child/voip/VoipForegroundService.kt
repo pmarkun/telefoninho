@@ -1,0 +1,180 @@
+package com.telefoninho.child.voip
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
+import android.os.Build
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+import com.telefoninho.child.MainActivity
+import com.telefoninho.child.data.ConfigStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+
+class VoipForegroundService : Service() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private lateinit var configStore: ConfigStore
+
+    private val listener = object : VoipListener {
+        override fun onRegistered() {
+            showServiceNotification("Telefoninho pronto")
+        }
+
+        override fun onUnregistered() {
+            showServiceNotification("Telefoninho desconectado")
+        }
+
+        override fun onRegistrationFailed(reason: String) {
+            showServiceNotification("SIP falhou")
+        }
+
+        override fun onCallReceived(callerExtension: String) {
+            showIncomingCallNotification(callerExtension)
+        }
+
+        override fun onCallConnected() {
+            notificationManager().cancel(INCOMING_NOTIFICATION_ID)
+            showServiceNotification("Chamada em andamento")
+        }
+
+        override fun onCallEnded() {
+            notificationManager().cancel(INCOMING_NOTIFICATION_ID)
+            showServiceNotification("Telefoninho pronto")
+        }
+
+        override fun onCallFailed(reason: String) {
+            notificationManager().cancel(INCOMING_NOTIFICATION_ID)
+            showServiceNotification("Chamada falhou")
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        configStore = ConfigStore(this)
+        createNotificationChannels()
+        VoipSession.addListener(listener)
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForeground(SERVICE_NOTIFICATION_ID, buildServiceNotification("Telefoninho conectando"))
+        scope.launch {
+            val config = configStore.loadConfig()
+            if (config == null) {
+                stopSelf()
+                return@launch
+            }
+            VoipSession.start(this@VoipForegroundService, config.sip)
+            VoipSession.setSpeakerMode(configStore.speakerMode.first())
+        }
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        VoipSession.removeListener(listener)
+        scope.cancel()
+        super.onDestroy()
+    }
+
+    private fun showServiceNotification(text: String) {
+        notificationManager().notify(SERVICE_NOTIFICATION_ID, buildServiceNotification(text))
+    }
+
+    private fun showIncomingCallNotification(callerExtension: String) {
+        notificationManager().notify(
+            INCOMING_NOTIFICATION_ID,
+            buildIncomingCallNotification(callerExtension),
+        )
+    }
+
+    private fun buildServiceNotification(text: String): Notification =
+        NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.sym_call_outgoing)
+            .setContentTitle("Telefoninho")
+            .setContentText(text)
+            .setContentIntent(openAppIntent())
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+    private fun buildIncomingCallNotification(callerExtension: String): Notification =
+        NotificationCompat.Builder(this, CALL_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.sym_call_incoming)
+            .setContentTitle("Telefoninho tocando")
+            .setContentText("Chamada de $callerExtension")
+            .setContentIntent(openAppIntent())
+            .setFullScreenIntent(openAppIntent(), true)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setAutoCancel(true)
+            .build()
+
+    private fun openAppIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
+        val serviceChannel = NotificationChannel(
+            SERVICE_CHANNEL_ID,
+            "Telefoninho conectado",
+            NotificationManager.IMPORTANCE_LOW,
+        )
+        val callChannel = NotificationChannel(
+            CALL_CHANNEL_ID,
+            "Chamadas do Telefoninho",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            val ringtone = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            val attrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            setSound(ringtone, attrs)
+            enableVibration(true)
+        }
+
+        notificationManager().createNotificationChannel(serviceChannel)
+        notificationManager().createNotificationChannel(callChannel)
+    }
+
+    private fun notificationManager(): NotificationManager =
+        getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    companion object {
+        private const val SERVICE_CHANNEL_ID = "telefoninho_voip"
+        private const val CALL_CHANNEL_ID = "telefoninho_calls"
+        private const val SERVICE_NOTIFICATION_ID = 1001
+        private const val INCOMING_NOTIFICATION_ID = 1002
+
+        fun start(context: Context) {
+            val intent = Intent(context, VoipForegroundService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+    }
+}
+
