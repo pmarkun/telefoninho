@@ -27,7 +27,7 @@ export async function reloadAsterisk(): Promise<void> {
 
   await sendAmiActions(host, port, [
     { action: "Login", fields: { Username: username, Secret: password } },
-    { action: "Command", fields: { Command: "pjsip reload" } },
+    { action: "Command", fields: { Command: "module reload res_pjsip.so" } },
     { action: "Command", fields: { Command: "dialplan reload" } },
     { action: "Logoff" },
   ]);
