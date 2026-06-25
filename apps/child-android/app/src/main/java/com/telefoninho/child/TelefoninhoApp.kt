@@ -150,7 +150,7 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             error = error,
                             onOpenSettings = { viewModel.openSettings() },
                             onOpenContacts = { viewModel.openContacts() },
-                            onOpenDialpad = { viewModel.openDialpad() },
+                            onCall = { viewModel.callExtension(it) },
                         )
 
                         Screen.Settings -> SettingsScreen(
@@ -171,12 +171,6 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             onCall = { viewModel.callContact(it) },
                             onOpenMyContact = { viewModel.openMyQr() },
                             onAddContact = { viewModel.openQrScanner() },
-                            onBack = { viewModel.closeSettings() },
-                        )
-
-                        Screen.Dialpad -> DialpadScreen(
-                            error = error,
-                            onCall = { viewModel.callExtension(it) },
                             onBack = { viewModel.closeSettings() },
                         )
 
@@ -267,12 +261,33 @@ private fun HomeScreen(
     error: String?,
     onOpenSettings: () -> Unit,
     onOpenContacts: () -> Unit,
-    onOpenDialpad: () -> Unit,
+    onCall: (String) -> Unit,
 ) {
+    var extension by remember { mutableStateOf("") }
     val statusKind = if (sipStatus == "SIP conectado") CallStatus.Ready else CallStatus.Calling
     TelefoninhoFrame(status = sipStatus, statusKind = statusKind) {
         PixelTitle(text = "TELEFONINHO")
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(18.dp))
+        PixelCard {
+            Text(
+                text = extension.ifBlank { "----" },
+                color = PixelTheme.fg,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
+            )
+            if (contacts.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${contacts.size} CONTATOS",
+                    color = PixelTheme.fg,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
         if (error != null) {
             Text(
                 text = error, color = ComposeColor(0xFFC93F3F),
@@ -281,19 +296,17 @@ private fun HomeScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
         }
-        PixelButton(text = "DIALPAD", onClick = onOpenDialpad)
-        Spacer(modifier = Modifier.height(12.dp))
+        DialpadKeys(
+            extension = extension,
+            onExtensionChange = { extension = it },
+        )
+        PixelButton(text = "LIGAR", enabled = extension.isNotBlank(), onClick = { onCall(extension) })
         if (contacts.isEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "NENHUM CONTATO", color = PixelTheme.fg,
-                fontSize = 18.sp, fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center,
-            )
-        } else {
-            Text(
-                text = "${contacts.size} CONTATOS",
+                text = "NENHUM CONTATO",
                 color = PixelTheme.fg,
-                fontSize = 18.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
             )
@@ -307,6 +320,30 @@ private fun HomeScreen(
                 PixelButton(text = "OPCOES", onClick = onOpenSettings)
             }
         }
+    }
+}
+
+@Composable
+private fun DialpadKeys(extension: String, onExtensionChange: (String) -> Unit) {
+    listOf("123", "456", "789", "<0#").forEach { row ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        ) {
+            row.forEach { digit ->
+                PixelIconButton(
+                    text = digit.toString(),
+                    onClick = {
+                        if (digit == '<') {
+                            onExtensionChange(extension.dropLast(1))
+                        } else if (extension.length < 8) {
+                            onExtensionChange(extension + digit)
+                        }
+                    },
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
     }
 }
 
@@ -480,59 +517,6 @@ private fun ContactTools(onOpenMyContact: () -> Unit, onAddContact: () -> Unit) 
                 },
             )
         }
-    }
-}
-
-@Composable
-private fun DialpadScreen(error: String?, onCall: (String) -> Unit, onBack: () -> Unit) {
-    var extension by remember { mutableStateOf("") }
-    TelefoninhoFrame(status = "dialpad", statusKind = CallStatus.Ready) {
-        PixelTitle(text = "RAMAL")
-        Spacer(modifier = Modifier.height(18.dp))
-        PixelCard {
-            Text(
-                text = extension.ifBlank { "----" },
-                color = PixelTheme.fg,
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace,
-            )
-            if (error != null) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = error,
-                    color = ComposeColor(0xFFC93F3F),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        listOf("123", "456", "789", "<0#").forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-            ) {
-                row.forEach { digit ->
-                    PixelIconButton(
-                        text = digit.toString(),
-                        onClick = {
-                            if (digit == '<') {
-                                extension = extension.dropLast(1)
-                            } else if (extension.length < 8) {
-                                extension += digit
-                            }
-                        },
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-        PixelButton(text = "LIGAR", enabled = extension.isNotBlank(), onClick = { onCall(extension) })
-        Spacer(modifier = Modifier.height(12.dp))
-        PixelButton(text = "VOLTAR", onClick = onBack)
     }
 }
 

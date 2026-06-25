@@ -58,7 +58,6 @@ sealed interface Screen {
     data object Home : Screen
     data object Settings : Screen
     data object Contacts : Screen
-    data object Dialpad : Screen
     data object MyQr : Screen
     data object ScanQr : Screen
     data class Calling(val contact: ContactInfo) : Screen

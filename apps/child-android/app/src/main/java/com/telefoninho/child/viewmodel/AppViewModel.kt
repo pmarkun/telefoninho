@@ -213,10 +213,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _screen.value = Screen.Contacts
     }
 
-    fun openDialpad() {
-        _screen.value = Screen.Dialpad
-    }
-
     fun callContact(contact: ContactInfo) {
         if (!contact.enabled) {
             _error.value = "Contato ainda nao aprovado"
