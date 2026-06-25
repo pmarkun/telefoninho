@@ -8,7 +8,9 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.RingtoneManager
+import android.media.ToneGenerator
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -19,11 +21,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class VoipForegroundService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var configStore: ConfigStore
+    private var ringtoneJob: Job? = null
 
     private val listener = object : VoipListener {
         override fun onRegistered() {
@@ -39,20 +44,24 @@ class VoipForegroundService : Service() {
         }
 
         override fun onCallReceived(callerExtension: String) {
+            startRingtone()
             showIncomingCallNotification(callerExtension)
         }
 
         override fun onCallConnected() {
+            stopRingtone()
             notificationManager().cancel(INCOMING_NOTIFICATION_ID)
             showServiceNotification("Chamada em andamento")
         }
 
         override fun onCallEnded() {
+            stopRingtone()
             notificationManager().cancel(INCOMING_NOTIFICATION_ID)
             showServiceNotification("Telefoninho pronto")
         }
 
         override fun onCallFailed(reason: String) {
+            stopRingtone()
             notificationManager().cancel(INCOMING_NOTIFICATION_ID)
             showServiceNotification("Chamada falhou")
         }
@@ -83,6 +92,7 @@ class VoipForegroundService : Service() {
 
     override fun onDestroy() {
         VoipSession.removeListener(listener)
+        stopRingtone()
         scope.cancel()
         super.onDestroy()
     }
@@ -161,6 +171,41 @@ class VoipForegroundService : Service() {
     private fun notificationManager(): NotificationManager =
         getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    private fun startRingtone() {
+        ringtoneJob?.cancel()
+        ringtoneJob = scope.launch {
+            val option = configStore.ringtone.first()
+            val toneGenerator = ToneGenerator(AudioManager.STREAM_RING, 100)
+            try {
+                while (true) {
+                    playRingtonePattern(toneGenerator, option)
+                    delay(700)
+                }
+            } finally {
+                toneGenerator.release()
+            }
+        }
+    }
+
+    private fun stopRingtone() {
+        ringtoneJob?.cancel()
+        ringtoneJob = null
+    }
+
+    private suspend fun playRingtonePattern(toneGenerator: ToneGenerator, option: String) {
+        val pattern = when (option) {
+            "COIN" -> listOf(120, 80, 120, 260)
+            "LASER" -> listOf(80, 60, 80, 60, 220)
+            else -> listOf(180, 120, 180, 320)
+        }
+        pattern.forEachIndexed { index, duration ->
+            if (index % 2 == 0) {
+                toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, duration)
+            }
+            delay(duration.toLong())
+        }
+    }
+
     companion object {
         private const val SERVICE_CHANNEL_ID = "telefoninho_voip"
         private const val CALL_CHANNEL_ID = "telefoninho_calls"
@@ -177,4 +222,3 @@ class VoipForegroundService : Service() {
         }
     }
 }
-

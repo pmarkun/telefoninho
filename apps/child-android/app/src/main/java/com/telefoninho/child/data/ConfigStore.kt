@@ -19,6 +19,7 @@ private const val KEY_CONFIG = "app_config"
 private const val KEY_PAIRED = "is_paired"
 private const val KEY_API_BASE_URL = "api_base_url"
 private const val KEY_SPEAKER_MODE = "speaker_mode"
+private const val KEY_RINGTONE = "ringtone"
 
 class ConfigStore(private val context: Context) {
 
@@ -32,6 +33,10 @@ class ConfigStore(private val context: Context) {
 
     val speakerMode: Flow<Boolean> = context.store.data.map { prefs ->
         prefs[stringPreferencesKey(KEY_SPEAKER_MODE)]?.toBoolean() ?: true
+    }
+
+    val ringtone: Flow<String> = context.store.data.map { prefs ->
+        prefs[stringPreferencesKey(KEY_RINGTONE)] ?: "BEEP"
     }
 
     suspend fun saveConfig(config: AppConfig) {
@@ -65,6 +70,12 @@ class ConfigStore(private val context: Context) {
     suspend fun saveSpeakerMode(value: Boolean) {
         context.store.edit { prefs ->
             prefs[stringPreferencesKey(KEY_SPEAKER_MODE)] = value.toString()
+        }
+    }
+
+    suspend fun saveRingtone(value: String) {
+        context.store.edit { prefs ->
+            prefs[stringPreferencesKey(KEY_RINGTONE)] = value
         }
     }
 

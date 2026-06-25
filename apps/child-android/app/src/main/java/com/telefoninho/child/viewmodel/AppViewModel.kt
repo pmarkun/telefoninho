@@ -54,6 +54,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _speakerMode = MutableStateFlow(true)
     val speakerMode: StateFlow<Boolean> = _speakerMode.asStateFlow()
 
+    private val _ringtone = MutableStateFlow("BEEP")
+    val ringtone: StateFlow<String> = _ringtone.asStateFlow()
+
     private var sipCredentials: SipCredentials? = null
 
     private val voipListener = object : VoipListener {
@@ -105,6 +108,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         VoipSession.addListener(voipListener)
         observeApiBaseUrl()
         observeSpeakerMode()
+        observeRingtone()
         checkPaired()
     }
 
@@ -120,6 +124,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _speakerMode.value = it
                 VoipSession.setSpeakerMode(it)
             }
+        }
+    }
+
+    private fun observeRingtone() {
+        viewModelScope.launch {
+            configStore.ringtone.collect { _ringtone.value = it }
         }
     }
 
@@ -189,13 +199,43 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _screen.value = Screen.Home
     }
 
+    fun openContacts() {
+        _screen.value = Screen.Contacts
+    }
+
+    fun openDialpad() {
+        _screen.value = Screen.Dialpad
+    }
+
     fun callContact(contact: ContactInfo) {
+        if (!contact.enabled) {
+            _error.value = "Contato ainda nao aprovado"
+            return
+        }
         if (contact.sipExtension.isBlank()) {
             _error.value = "Contato sem ramal SIP"
             return
         }
         _screen.value = Screen.Calling(contact)
         VoipSession.call(contact.sipExtension)
+    }
+
+    fun callExtension(extension: String) {
+        if (extension.isBlank()) {
+            _error.value = "Digite um ramal"
+            return
+        }
+        _screen.value = Screen.Calling(
+            ContactInfo(
+                memberId = "",
+                displayName = extension,
+                avatarKey = "dialpad",
+                colorKey = "blue",
+                sipExtension = extension,
+                enabled = true,
+            ),
+        )
+        VoipSession.call(extension)
     }
 
     fun openMyQr() {
@@ -297,6 +337,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun setSpeakerMode(enabled: Boolean) {
         viewModelScope.launch {
             configStore.saveSpeakerMode(enabled)
+        }
+    }
+
+    fun setRingtone(value: String) {
+        viewModelScope.launch {
+            configStore.saveRingtone(value)
         }
     }
 

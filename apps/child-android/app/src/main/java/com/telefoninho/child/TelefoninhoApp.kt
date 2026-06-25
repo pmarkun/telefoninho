@@ -89,6 +89,7 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
     val contactInviteLoading by viewModel.contactInviteLoading.collectAsState()
     val refreshContactsLoading by viewModel.refreshContactsLoading.collectAsState()
     val speakerMode by viewModel.speakerMode.collectAsState()
+    val ringtone by viewModel.ringtone.collectAsState()
     var showServerSettings by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = PixelTheme.bg) {
@@ -142,21 +143,37 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             contacts = state.contacts,
                             sipStatus = sipStatus,
                             error = error,
-                            onCall = { viewModel.callContact(it) },
                             onOpenMyQr = { viewModel.openMyQr() },
                             onOpenQrScanner = { viewModel.openQrScanner() },
                             onOpenSettings = { viewModel.openSettings() },
+                            onOpenContacts = { viewModel.openContacts() },
+                            onOpenDialpad = { viewModel.openDialpad() },
                         )
 
                         Screen.Settings -> SettingsScreen(
                             speakerMode = speakerMode,
+                            ringtone = ringtone,
                             refreshLoading = refreshContactsLoading,
                             error = error,
                             onOpenServerSettings = { showServerSettings = true },
                             onToggleSpeaker = { viewModel.setSpeakerMode(it) },
+                            onRingtoneChange = { viewModel.setRingtone(it) },
                             onRefreshContacts = { viewModel.refreshContacts() },
                             onOpenMyQr = { viewModel.openMyQr() },
                             onOpenQrScanner = { viewModel.openQrScanner() },
+                            onBack = { viewModel.closeSettings() },
+                        )
+
+                        Screen.Contacts -> ContactsScreen(
+                            contacts = state.contacts,
+                            error = error,
+                            onCall = { viewModel.callContact(it) },
+                            onBack = { viewModel.closeSettings() },
+                        )
+
+                        Screen.Dialpad -> DialpadScreen(
+                            error = error,
+                            onCall = { viewModel.callExtension(it) },
                             onBack = { viewModel.closeSettings() },
                         )
 
@@ -245,10 +262,11 @@ private fun HomeScreen(
     contacts: List<ContactInfo>,
     sipStatus: String,
     error: String?,
-    onCall: (ContactInfo) -> Unit,
     onOpenMyQr: () -> Unit,
     onOpenQrScanner: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenContacts: () -> Unit,
+    onOpenDialpad: () -> Unit,
 ) {
     val statusKind = if (sipStatus == "SIP conectado") CallStatus.Ready else CallStatus.Calling
     TelefoninhoFrame(status = sipStatus, statusKind = statusKind) {
@@ -270,12 +288,14 @@ private fun HomeScreen(
         }
         if (contacts.isEmpty()) {
             Text(
-                text = "NENHUM CONTATO APROVADO", color = PixelTheme.fg,
+                text = "NENHUM CONTATO", color = PixelTheme.fg,
                 fontSize = 18.sp, fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
             )
         } else {
-            ContactGrid(contacts = contacts, onCall = onCall)
+            PixelButton(text = "CONTATOS (${contacts.size})", onClick = onOpenContacts)
+            Spacer(modifier = Modifier.height(12.dp))
+            PixelButton(text = "DIALPAD", onClick = onOpenDialpad)
         }
     }
 }
@@ -324,10 +344,12 @@ private fun ScanQrIconButton(text: String, onOpenQrScanner: () -> Unit) {
 @Composable
 private fun SettingsScreen(
     speakerMode: Boolean,
+    ringtone: String,
     refreshLoading: Boolean,
     error: String?,
     onOpenServerSettings: () -> Unit,
     onToggleSpeaker: (Boolean) -> Unit,
+    onRingtoneChange: (String) -> Unit,
     onRefreshContacts: () -> Unit,
     onOpenMyQr: () -> Unit,
     onOpenQrScanner: () -> Unit,
@@ -372,10 +394,139 @@ private fun SettingsScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(
+            text = "RING: ${ringtoneLabel(ringtone)}",
+            onClick = { onRingtoneChange(nextRingtone(ringtone)) },
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(
             text = if (refreshLoading) "ATUALIZANDO..." else "ATUALIZAR CONTATOS",
             enabled = !refreshLoading,
             onClick = onRefreshContacts,
         )
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "VOLTAR", onClick = onBack)
+    }
+}
+
+private fun ringtoneLabel(value: String): String = when (value) {
+    "COIN" -> "COIN"
+    "LASER" -> "LASER"
+    else -> "BEEP"
+}
+
+private fun nextRingtone(value: String): String = when (value) {
+    "BEEP" -> "COIN"
+    "COIN" -> "LASER"
+    else -> "BEEP"
+}
+
+@Composable
+private fun ContactsScreen(
+    contacts: List<ContactInfo>,
+    error: String?,
+    onCall: (ContactInfo) -> Unit,
+    onBack: () -> Unit,
+) {
+    var page by remember(contacts) { mutableIntStateOf(0) }
+    val pageSize = 4
+    val pageCount = maxOf(1, (contacts.size + pageSize - 1) / pageSize)
+    val visibleContacts = contacts.drop(page * pageSize).take(pageSize)
+
+    TelefoninhoFrame(status = "contatos", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "CONTATOS")
+        Spacer(modifier = Modifier.height(18.dp))
+        if (error != null) {
+            Text(
+                text = error,
+                color = ComposeColor(0xFFC93F3F),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        if (visibleContacts.isEmpty()) {
+            Text(
+                text = "SEM CONTATOS",
+                color = PixelTheme.fg,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+            )
+        } else {
+            ContactGrid(contacts = visibleContacts, onCall = onCall)
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "${page + 1}/$pageCount",
+            color = PixelTheme.fg,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(modifier = Modifier.weight(1f)) {
+                PixelButton(text = "ANT", enabled = page > 0, onClick = { page -= 1 })
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                PixelButton(text = "PROX", enabled = page < pageCount - 1, onClick = { page += 1 })
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = "VOLTAR", onClick = onBack)
+    }
+}
+
+@Composable
+private fun DialpadScreen(error: String?, onCall: (String) -> Unit, onBack: () -> Unit) {
+    var extension by remember { mutableStateOf("") }
+    TelefoninhoFrame(status = "dialpad", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "RAMAL")
+        Spacer(modifier = Modifier.height(18.dp))
+        PixelCard {
+            Text(
+                text = extension.ifBlank { "----" },
+                color = PixelTheme.fg,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
+            )
+            if (error != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = error,
+                    color = ComposeColor(0xFFC93F3F),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        listOf("123", "456", "789", "<0#").forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            ) {
+                row.forEach { digit ->
+                    PixelIconButton(
+                        text = digit.toString(),
+                        onClick = {
+                            if (digit == '<') {
+                                extension = extension.dropLast(1)
+                            } else if (extension.length < 8) {
+                                extension += digit
+                            }
+                        },
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        PixelButton(text = "LIGAR", enabled = extension.isNotBlank(), onClick = { onCall(extension) })
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(text = "VOLTAR", onClick = onBack)
     }

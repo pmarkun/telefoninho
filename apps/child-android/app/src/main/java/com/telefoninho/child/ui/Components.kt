@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -220,16 +221,20 @@ fun BigContactHero(contact: ContactInfo, label: String) {
 fun ContactButton(contact: ContactInfo, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val color = parseColor(contact.colorKey)
     Column(
-        modifier = modifier.aspectRatio(1f).pixelSurface()
-            .clickable(onClick = onClick).padding(10.dp),
+        modifier = modifier.aspectRatio(1f)
+            .alpha(if (contact.enabled) 1f else 0.42f)
+            .pixelSurface()
+            .clickable(enabled = contact.enabled, onClick = onClick).padding(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         PixelAvatar(name = contact.displayName, color = color, size = 54)
         Spacer(modifier = Modifier.height(10.dp))
         Text(
-            text = contact.displayName, color = PixelTheme.fg, fontSize = 18.sp,
-            fontWeight = FontWeight.Black, maxLines = 1,
+            text = if (contact.enabled) contact.displayName else "${contact.displayName}\nPENDENTE",
+            color = PixelTheme.fg,
+            fontSize = if (contact.enabled) 18.sp else 14.sp,
+            fontWeight = FontWeight.Black, maxLines = 2,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -239,7 +244,7 @@ fun ContactButton(contact: ContactInfo, onClick: () -> Unit, modifier: Modifier 
 @Composable
 fun ContactGrid(contacts: List<ContactInfo>, onCall: (ContactInfo) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        contacts.filter { it.enabled }.chunked(2).forEach { rowContacts ->
+        contacts.chunked(2).forEach { rowContacts ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
