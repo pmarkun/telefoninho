@@ -1,52 +1,118 @@
 # Telefoninho
 
-Monorepo do MVP Telefoninho (fases iniciais de bootstrap).
+Telefoninho é um sistema de telefone infantil controlado pelos pais. Crianças podem fazer chamadas apenas para contatos previamente autorizados no painel web. O sistema usa **Asterisk + PJSIP** como central VoIP e oferece um app Android com chamadas SIP reais via **Liblinphone**.
 
-## Estrutura
+## Stack
 
-- `apps/child-android` app Android (Jetpack Compose)
-- `apps/parent-web` painel web parental (Next.js)
-- `services/api` backend Fastify + Prisma
-- `packages/shared` tipos/validações compartilhadas
-- `infra/asterisk` Docker e templates de configuração
-- `scripts` scripts de automação de desenvolvimento
-- `docs` documentação e especificação
+| Camada | Tecnologia |
+|--------|-----------|
+| Backend | Fastify + Drizzle ORM + SQLite + Zod |
+| Painel web | Next.js 15 (App Router) + Tailwind |
+| App Android | Kotlin + Jetpack Compose + Liblinphone |
+| VoIP | Asterisk + PJSIP |
+| Infra | Docker Compose, Nix flake |
 
-## Ambiente de desenvolvimento
+## Pré-requisitos
 
-Este repositório usa `nix develop` para padronizar ferramentas locais.
+- **Opção A (Nix):** `nix develop` ativa o shell com Node 22, pnpm, JDK 17, Gradle, SQLite, Docker.
+- **Opção B (manual):** Node 22+, pnpm 10, Docker + Compose, JDK 17 (só para Android), SQLite.
+
+## Instalação e uso
 
 ```bash
+# 1. Entrar no ambiente (Nix)
 nix develop
-```
 
-Dentro da shell:
-
-```bash
+# 2. Copiar configuração
 cp .env.example .env
+# Edite JWT_SECRET e, se necessário, DATABASE_URL
+
+# 3. Instalar dependências
 pnpm install
+
+# 4. Aplicar schema do banco
+pnpm db:push
+
+# 5. Popular com dados de exemplo (família demo com 4 membros)
+pnpm seed
+
+# 6. Subir o Asterisk (Docker)
+docker compose up -d asterisk
+
+# 7. (Opcional) Gerar configs do Asterisk
+pnpm infra:generate-asterisk
+
+# 8. Iniciar desenvolvimento (API + web simultaneamente)
 pnpm dev
 ```
 
-## Stack alvo
+- API: http://localhost:3001
+- Painel web: http://localhost:3000
+- Asterisk SIP: udp://localhost:5060
 
-- Backend/painel: TypeScript (Node 22+, Fastify, Prisma, Zod, Next.js)
-- Android: Kotlin + Jetpack Compose
-- VoIP: Asterisk + PJSIP
+### Serviços individuais
 
-## Fase implementada
+```bash
+pnpm dev:api     # só a API (porta 3001)
+pnpm dev:web     # só o painel web (porta 3000)
+```
 
-Atualmente está pronto o esqueleto da Fase A do spec:
+## Testes
 
-- estrutura de pastas padronizada
-- stubs iniciais para API, web, app Android e infra
-- docker-compose e scripts de bootstrap
-- configs básicas de ambiente e documentação inicial
+```bash
+# Todos os testes (root do monorepo)
+pnpm test
 
-## Próximos passos
+# Testes de um workspace específico
+pnpm --filter @telefoninho/api test
+pnpm --filter @telefoninho/shared test
 
-1. Implementar entidades Prisma e seed inicial
-2. Criar endpoints de auth, membros, pareamento e regras
-3. Implementar geração Asterisk
-4. Evoluir telas Android e fluxo de chamada
+# Testes de integração da API
+pnpm --filter @telefoninho/api test:integration
 
+# Assistir modo watch
+pnpm --filter @telefoninho/api test:watch
+```
+
+## TypeScript
+
+```bash
+pnpm typecheck   # type-check todos os pacotes
+pnpm lint        # lint todos os pacotes
+```
+
+## Android
+
+Abra `apps/child-android/` no Android Studio ou rode com Gradle:
+
+```bash
+cd apps/child-android
+./gradlew assembleDebug  # dentro do nix develop
+```
+
+Para testar o app em celular fisico contra a API local, veja [docs/android-network-testing.md](docs/android-network-testing.md).
+
+## Deploy em VPS
+
+O caminho recomendado para o MVP é subir API, painel web, Asterisk e Caddy em uma VPS única com Docker Compose.
+
+Veja [docs/deploy-vps.md](docs/deploy-vps.md).
+
+## Estrutura
+
+```
+telefoninho/
+├── apps/
+│   ├── child-android/     # App Android (Jetpack Compose + Liblinphone)
+│   └── parent-web/        # Painel parental (Next.js)
+├── services/
+│   └── api/               # API backend (Fastify + Drizzle)
+├── packages/
+│   └── shared/            # Tipos e schemas Zod compartilhados
+├── infra/
+│   └── asterisk/          # Dockerfile e templates Asterisk
+├── scripts/               # Scripts auxiliares
+├── docker-compose.yml
+├── flake.nix
+└── PLAN.md                # Status detalhado da implementação
+```

@@ -1,7 +1,7 @@
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 
-const infraScript = resolve(import.meta.dirname, "../../infra/asterisk/scripts/generate-asterisk-config.ts");
+const infraScript = resolve(import.meta.dirname, "../../../infra/asterisk/scripts/generate-asterisk-config.ts");
 
 try {
   execSync(`npx tsx ${infraScript}`, {

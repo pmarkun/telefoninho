@@ -1,4 +1,4 @@
-FROM andrius/asterisk:20.7.0
+FROM andrius/asterisk:20
 
 RUN rm -rf /etc/asterisk/*.conf && mkdir -p /etc/asterisk
 

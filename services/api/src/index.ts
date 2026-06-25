@@ -1,4 +1,5 @@
 import fastify from "fastify";
+import cors from "@fastify/cors";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerMemberRoutes } from "./routes/members.js";
@@ -9,6 +10,8 @@ import { registerAdminRoutes } from "./routes/admin.js";
 import { registerFamilyRoutes } from "./routes/families.js";
 
 const server = fastify({ logger: true });
+
+await server.register(cors, { origin: true });
 
 registerHealthRoutes(server);
 registerAuthRoutes(server);

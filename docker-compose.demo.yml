@@ -1,0 +1,52 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    container_name: telefoninho-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=file:/data/telefoninho.db
+      - API_BASE_URL=${API_BASE_URL}
+      - ASTERISK_HOST=${ASTERISK_HOST}
+      - ASTERISK_PJSIP_PORT=5060
+      - JWT_SECRET=${JWT_SECRET}
+      - PAIRING_CODE_TTL_MINUTES=${PAIRING_CODE_TTL_MINUTES:-20}
+      - SEED_DEMO=${SEED_DEMO:-false}
+    ports:
+      - "3001:3001"
+    volumes:
+      - api-data:/data
+      - ./infra/asterisk/config:/app/infra/asterisk/config
+
+  parent-web:
+    build:
+      context: .
+      dockerfile: apps/parent-web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${API_BASE_URL}
+    container_name: telefoninho-parent-web
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=${API_BASE_URL}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  asterisk:
+    build: ./infra/asterisk
+    container_name: telefoninho-asterisk
+    restart: unless-stopped
+    ports:
+      - "5060:5060/udp"
+      - "10000-10100:10000-10100/udp"
+    volumes:
+      - ./infra/asterisk/config:/etc/asterisk
+
+volumes:
+  api-data:
+

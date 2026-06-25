@@ -6,5 +6,7 @@ COPY apps/parent-web/package.json apps/parent-web/package.json
 COPY packages/shared/package.json packages/shared/package.json
 RUN pnpm install --filter @telefoninho/parent-web... --no-frozen-lockfile
 COPY . .
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 RUN pnpm --filter @telefoninho/parent-web build
 CMD ["pnpm", "--filter", "@telefoninho/parent-web", "start"]
