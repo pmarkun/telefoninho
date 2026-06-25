@@ -122,7 +122,7 @@ class VoipManager(private val context: Context) {
         params.isRegisterEnabled = true
 
         val authInfo = factory.createAuthInfo(
-            creds.extension, creds.password, creds.username, creds.domain, null, null,
+            creds.username, null, creds.password, null, null, creds.domain,
         )
         c.addAuthInfo(authInfo)
 
