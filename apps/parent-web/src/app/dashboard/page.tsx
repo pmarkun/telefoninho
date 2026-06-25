@@ -14,6 +14,13 @@ interface Member {
   sipExtension: string | null;
 }
 
+interface AsteriskStatus {
+  pending: boolean;
+  lastGeneratedAt: string | null;
+  lastAppliedAt: string | null;
+  lastError: string | null;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { notify } = useNotify();
@@ -21,7 +28,8 @@ export default function DashboardPage() {
   const [parentName, setParentName] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [stats, setStats] = useState({ families: 0, members: 0, totalCalls: 0 });
-  const [familyId, setFamilyId] = useState("");
+  const [asteriskStatus, setAsteriskStatus] = useState<AsteriskStatus | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
     const t = localStorage.getItem("token");
@@ -36,7 +44,6 @@ export default function DashboardPage() {
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: { id: string; name: string }[]) => {
         if (data.length > 0) {
-          setFamilyId(data[0].id);
           return fetch(`${API}/families/${data[0].id}/members`, { headers: h })
             .then((r2) => { if (!r2.ok) throw new Error(); return r2.json(); })
             .then(setMembers);
@@ -48,18 +55,31 @@ export default function DashboardPage() {
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then(setStats)
       .catch(() => notify("Erro ao carregar estatísticas", "error"));
+
+    loadAsteriskStatus(t, setAsteriskStatus, notify);
   }, [router, notify]);
 
   async function regenerateAsterisk() {
+    setRegenerating(true);
     try {
-      const res = await fetch(`${API}/families/${familyId}/members`, {
+      const res = await fetch(`${API}/admin/asterisk/regenerate`, {
+        method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Erro ao regenerar config VoIP" }));
+        throw new Error(err.error || "Erro ao regenerar config VoIP");
+      }
       const data = await res.json();
-      notify(`Config recarregada para ${data.length} membros. Execute pnpm generate:asterisk no servidor.`, "success");
-    } catch {
-      notify("Erro ao recarregar config Asterisk", "error");
+      notify(`Config VoIP aplicada para ${data.generatedAccounts} contas SIP`, "success");
+      await loadAsteriskStatus(token, setAsteriskStatus, notify);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Erro ao regenerar config VoIP", "error");
+      if (token) {
+        await loadAsteriskStatus(token, setAsteriskStatus, notify);
+      }
+    } finally {
+      setRegenerating(false);
     }
   }
 
@@ -123,9 +143,33 @@ export default function DashboardPage() {
         <div className="grid-2">
           <div className="card">
             <h2>Asterisk</h2>
-            <p>Gere novamente as configurações SIP e Dialplan.</p>
-            <button onClick={regenerateAsterisk} className="primary">
-              Regenerar Config VoIP
+            {asteriskStatus?.pending ? (
+              <div
+                style={{
+                  border: "1px solid #f59e0b",
+                  background: "rgba(245, 158, 11, 0.12)",
+                  padding: "0.75rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                <strong>Configuração VoIP pendente</strong>
+                <p style={{ margin: "0.35rem 0 0", color: "var(--text-muted)" }}>
+                  Permissões ou contas SIP mudaram. Regenere para aplicar no Asterisk.
+                </p>
+                {asteriskStatus.lastError && (
+                  <p style={{ margin: "0.5rem 0 0", color: "#ef4444" }}>{asteriskStatus.lastError}</p>
+                )}
+              </div>
+            ) : (
+              <p className="status-ok">● Config VoIP aplicada</p>
+            )}
+            {asteriskStatus?.lastAppliedAt && (
+              <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+                Última aplicação: {formatDateTime(asteriskStatus.lastAppliedAt)}
+              </p>
+            )}
+            <button onClick={regenerateAsterisk} className="primary" disabled={regenerating || !token}>
+              {regenerating ? "Regenerando..." : "Regenerar Config VoIP"}
             </button>
           </div>
           <div className="card">
@@ -139,4 +183,27 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+}
+
+async function loadAsteriskStatus(
+  token: string,
+  setAsteriskStatus: (v: AsteriskStatus) => void,
+  notify: (msg: string, type?: "success" | "error" | "info") => void,
+) {
+  try {
+    const res = await fetch(`${API}/admin/asterisk/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error();
+    setAsteriskStatus(await res.json());
+  } catch {
+    notify("Erro ao carregar status VoIP", "error");
+  }
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
 }

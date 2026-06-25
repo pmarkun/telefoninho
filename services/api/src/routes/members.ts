@@ -12,6 +12,7 @@ import {
   pairingCodes,
   sipAccounts,
 } from "../db/index.js";
+import { markAsteriskConfigPending } from "../asterisk-config-state.js";
 import { generateSipExtension, generateSipPassword, hashSipPassword } from "../sip-auth.js";
 
 function cuid(): string {
@@ -89,6 +90,8 @@ export function registerMemberRoutes(server: FastifyInstance): void {
         updatedAt: now,
       }).run();
 
+      markAsteriskConfigPending();
+
       return {
         id: memberId,
         displayName: input.displayName,
@@ -113,6 +116,8 @@ export function registerMemberRoutes(server: FastifyInstance): void {
         .where(eq(familyMembers.id, req.params.memberId))
         .run();
 
+      markAsteriskConfigPending();
+
       return db.select().from(familyMembers).where(eq(familyMembers.id, req.params.memberId)).get();
     },
   );
@@ -133,6 +138,8 @@ export function registerMemberRoutes(server: FastifyInstance): void {
       db.delete(contactRequests).where(eq(contactRequests.targetMemberId, req.params.memberId)).run();
       db.delete(contactInvites).where(eq(contactInvites.targetMemberId, req.params.memberId)).run();
       db.delete(familyMembers).where(eq(familyMembers.id, req.params.memberId)).run();
+
+      markAsteriskConfigPending();
 
       return { success: true };
     },

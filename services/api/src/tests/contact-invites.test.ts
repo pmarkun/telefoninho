@@ -44,12 +44,14 @@ function createServer(): FastifyInstance {
 beforeAll(async () => {
   applyMigration("drizzle/0000_nebulous_joystick.sql");
   applyMigration("drizzle/0001_contact_invites.sql");
+  applyMigration("drizzle/0002_asterisk_config_state.sql");
   apiDb = await import("../db/index.js");
   const routes = await import("../routes/contact-invites.js");
   registerContactInviteRoutes = routes.registerContactInviteRoutes;
 });
 
 beforeEach(() => {
+  apiDb.db.delete(apiDb.asteriskConfigState).run();
   apiDb.db.delete(apiDb.allowedCalls).run();
   apiDb.db.delete(apiDb.contactRequests).run();
   apiDb.db.delete(apiDb.contactInvites).run();
@@ -162,6 +164,7 @@ describe("contact invite routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().status).toBe("approved");
     expect(apiDb.db.select().from(apiDb.allowedCalls).all()).toHaveLength(1);
+    expect(apiDb.db.select().from(apiDb.asteriskConfigState).get()?.pending).toBe(true);
     await server.close();
   });
 
@@ -184,6 +187,7 @@ describe("contact invite routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().status).toBe("auto_approved");
     expect(apiDb.db.select().from(apiDb.allowedCalls).all()).toHaveLength(1);
+    expect(apiDb.db.select().from(apiDb.asteriskConfigState).get()?.pending).toBe(true);
     await server.close();
   });
 });

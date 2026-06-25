@@ -10,6 +10,7 @@ import {
   families,
   familyMembers,
 } from "../db/index.js";
+import { markAsteriskConfigPending } from "../asterisk-config-state.js";
 
 function cuid(): string {
   return crypto.randomBytes(12).toString("hex");
@@ -34,6 +35,7 @@ export function createOrEnableAllowedCall(fromMemberId: string, toMemberId: stri
       .set({ enabled: true, updatedAt: now })
       .where(eq(allowedCalls.id, existing.id))
       .run();
+    markAsteriskConfigPending();
     return;
   }
 
@@ -49,6 +51,7 @@ export function createOrEnableAllowedCall(fromMemberId: string, toMemberId: stri
     createdAt: now,
     updatedAt: now,
   }).run();
+  markAsteriskConfigPending();
 }
 
 function serializeContactRequest(row: {

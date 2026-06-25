@@ -31,6 +31,7 @@ function createServer(): FastifyInstance {
 beforeAll(async () => {
   applyMigration("drizzle/0000_nebulous_joystick.sql");
   applyMigration("drizzle/0001_contact_invites.sql");
+  applyMigration("drizzle/0002_asterisk_config_state.sql");
   apiDb = await import("../db/index.js");
   const routes = await import("../routes/pairing.js");
   registerPairingRoutes = routes.registerPairingRoutes;

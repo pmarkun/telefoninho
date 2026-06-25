@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { eq, and } from "drizzle-orm";
 import { allowedCallSchema, updateAllowedCallSchema } from "@telefoninho/shared/validation";
 import { db, families, familyMembers, allowedCalls, sipAccounts } from "../db/index.js";
+import { markAsteriskConfigPending } from "../asterisk-config-state.js";
 
 function cuid(): string {
   return crypto.randomBytes(12).toString("hex");
@@ -61,6 +62,7 @@ export function registerAllowedCallRoutes(server: FastifyInstance): void {
         .set({ enabled: input.enabled, updatedAt: new Date() })
         .where(eq(allowedCalls.id, existing.id))
         .run();
+      markAsteriskConfigPending();
       return db.select().from(allowedCalls).where(eq(allowedCalls.id, existing.id)).get();
     }
 
@@ -85,6 +87,8 @@ export function registerAllowedCallRoutes(server: FastifyInstance): void {
       updatedAt: now,
     }).run();
 
+    markAsteriskConfigPending();
+
     return db.select().from(allowedCalls).where(eq(allowedCalls.id, id)).get();
   });
 
@@ -102,6 +106,8 @@ export function registerAllowedCallRoutes(server: FastifyInstance): void {
         .set({ enabled: input.enabled, updatedAt: new Date() })
         .where(eq(allowedCalls.id, req.params.ruleId))
         .run();
+
+      markAsteriskConfigPending();
 
       return db.select().from(allowedCalls).where(eq(allowedCalls.id, req.params.ruleId)).get();
     },

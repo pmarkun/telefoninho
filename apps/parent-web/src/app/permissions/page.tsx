@@ -77,7 +77,12 @@ export default function PermissionsPage() {
         }
         return [...prev, saved];
       });
-      notify(newEnabled ? "Permissão ativada" : "Permissão desativada", "success");
+      notify(
+        newEnabled
+          ? "Permissão ativada. Config VoIP pendente."
+          : "Permissão desativada. Config VoIP pendente.",
+        "success",
+      );
     } catch {
       notify("Erro de conexão ao salvar permissão", "error");
     } finally {
@@ -101,7 +106,7 @@ export default function PermissionsPage() {
       <div className="container">
         <h1>Matriz de Permissões</h1>
         <p style={{ color: "var(--text-muted)", marginBottom: "1rem" }}>
-          Marque quais membros podem ligar uns para os outros.
+          Marque quais membros podem ligar uns para os outros. Depois regenere a Config VoIP no Dashboard.
         </p>
         {members.length === 0 ? (
           <p style={{ color: "var(--text-muted)" }}>Nenhum membro encontrado.</p>

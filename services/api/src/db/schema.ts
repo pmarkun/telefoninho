@@ -105,3 +105,12 @@ export const callLogs = sqliteTable("call_log", {
   status: text("status").notNull().default("missed"),
   blockReason: text("block_reason"),
 });
+
+export const asteriskConfigState = sqliteTable("asterisk_config_state", {
+  id: text("id").primaryKey(),
+  pending: integer("pending", { mode: "boolean" }).notNull().default(false),
+  lastGeneratedAt: integer("last_generated_at", { mode: "timestamp" }),
+  lastAppliedAt: integer("last_applied_at", { mode: "timestamp" }),
+  lastError: text("last_error"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
