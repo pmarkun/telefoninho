@@ -10,6 +10,9 @@ import com.telefoninho.child.data.ContactInfo
 import com.telefoninho.child.data.Screen
 import com.telefoninho.child.data.SipCredentials
 import com.telefoninho.child.data.UiState
+import com.telefoninho.child.special.SpecialDialService
+import com.telefoninho.child.special.SpecialDialServiceRegistry
+import com.telefoninho.child.special.WeatherSpecialService
 import com.telefoninho.child.voip.VoipForegroundService
 import com.telefoninho.child.voip.VoipListener
 import com.telefoninho.child.voip.VoipSession
@@ -23,6 +26,9 @@ import org.json.JSONTokener
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val configStore = ConfigStore(application)
+    private val specialDialServices = SpecialDialServiceRegistry(
+        listOf(WeatherSpecialService(application)),
+    )
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -61,6 +67,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val theme: StateFlow<String> = _theme.asStateFlow()
 
     private var sipCredentials: SipCredentials? = null
+    private var activeSpecialService: SpecialDialService? = null
 
     private val voipListener = object : VoipListener {
         override fun onRegistered() {
@@ -227,21 +234,50 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun callExtension(extension: String) {
-        if (extension.isBlank()) {
+        val normalizedExtension = extension.trim()
+        if (normalizedExtension.isBlank()) {
             _error.value = "Digite um ramal"
+            return
+        }
+        val specialService = specialDialServices.find(normalizedExtension)
+        if (specialService != null) {
+            startSpecialDialService(specialService)
             return
         }
         _screen.value = Screen.Calling(
             ContactInfo(
                 memberId = "",
-                displayName = extension,
+                displayName = normalizedExtension,
                 avatarKey = "dialpad",
                 colorKey = "blue",
-                sipExtension = extension,
+                sipExtension = normalizedExtension,
                 enabled = true,
             ),
         )
-        VoipSession.call(extension)
+        VoipSession.call(normalizedExtension)
+    }
+
+    private fun startSpecialDialService(service: SpecialDialService) {
+        activeSpecialService?.stop()
+        activeSpecialService = service
+        _error.value = null
+        _screen.value = Screen.Calling(service.contact())
+        service.start(
+            scope = viewModelScope,
+            onFinished = {
+                if (activeSpecialService === service) {
+                    activeSpecialService = null
+                    _screen.value = Screen.Home
+                }
+            },
+            onError = { message ->
+                if (activeSpecialService === service) {
+                    activeSpecialService = null
+                    _error.value = message
+                    _screen.value = Screen.Home
+                }
+            },
+        )
     }
 
     fun openMyQr() {
@@ -368,6 +404,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun hangup() {
+        val specialService = activeSpecialService
+        if (specialService != null) {
+            activeSpecialService = null
+            specialService.stop()
+            _screen.value = Screen.Home
+            return
+        }
         _screen.value = Screen.Home
         VoipSession.hangup()
     }
@@ -420,6 +463,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
+        activeSpecialService?.stop()
+        activeSpecialService = null
         VoipSession.removeListener(voipListener)
     }
 }
