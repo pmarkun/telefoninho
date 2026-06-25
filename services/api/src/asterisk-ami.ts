@@ -5,6 +5,12 @@ type AmiAction = {
   fields?: Record<string, string>;
 };
 
+type AmiFrame = {
+  response: string | null;
+  message: string | null;
+  raw: string;
+};
+
 export async function reloadAsterisk(): Promise<void> {
   const mode = process.env.ASTERISK_RELOAD_MODE || "ami";
   if (mode === "skip") {
@@ -19,52 +25,103 @@ export async function reloadAsterisk(): Promise<void> {
   const username = process.env.ASTERISK_AMI_USERNAME || "telefoninho-api";
   const password = process.env.ASTERISK_AMI_PASSWORD || "telefoninho-api-dev";
 
-  const response = await sendAmiActions(host, port, [
+  await sendAmiActions(host, port, [
     { action: "Login", fields: { Username: username, Secret: password } },
     { action: "Command", fields: { Command: "pjsip reload" } },
     { action: "Command", fields: { Command: "dialplan reload" } },
     { action: "Logoff" },
   ]);
-
-  if (/Response:\s*Error/i.test(response)) {
-    const message = response.match(/Message:\s*(.+)/i)?.[1]?.trim() || "Asterisk AMI returned an error";
-    throw new Error(message);
-  }
 }
 
-function sendAmiActions(host: string, port: number, actions: AmiAction[]): Promise<string> {
+function sendAmiActions(host: string, port: number, actions: AmiAction[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection({ host, port });
-    let output = "";
+    let buffer = "";
     let settled = false;
+    let pendingActionId: string | null = null;
+    let actionIndex = 0;
 
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
       socket.destroy();
       if (error) reject(error);
-      else resolve(output);
+      else resolve();
+    };
+
+    const sendNextAction = () => {
+      const action = actions[actionIndex];
+      if (!action) {
+        finish();
+        return;
+      }
+
+      pendingActionId = `telefoninho-${Date.now()}-${actionIndex}`;
+      socket.write(formatAmiAction(action, pendingActionId));
+    };
+
+    const processBuffer = () => {
+      while (true) {
+        const frameEnd = buffer.indexOf("\r\n\r\n");
+        if (frameEnd < 0) return;
+
+        const rawFrame = buffer.slice(0, frameEnd);
+        buffer = buffer.slice(frameEnd + 4);
+
+        if (!pendingActionId || !rawFrame.includes(`ActionID: ${pendingActionId}`)) {
+          continue;
+        }
+
+        const frame = parseAmiFrame(rawFrame);
+        if (frame.response?.toLowerCase() === "error") {
+          finish(new Error(frame.message || "Asterisk AMI returned an error"));
+          return;
+        }
+
+        actionIndex += 1;
+        pendingActionId = null;
+        sendNextAction();
+      }
     };
 
     socket.setTimeout(8_000, () => finish(new Error("Asterisk AMI timeout")));
     socket.on("error", finish);
     socket.on("data", (chunk) => {
-      output += chunk.toString("utf8");
+      buffer += chunk.toString("utf8");
+      processBuffer();
     });
-    socket.on("connect", () => {
-      for (const action of actions) {
-        socket.write(formatAmiAction(action));
+    socket.on("connect", sendNextAction);
+    socket.on("close", () => {
+      if (!settled && actionIndex < actions.length) {
+        finish(new Error("Asterisk AMI connection closed before reload completed"));
+      } else {
+        finish();
       }
     });
-    socket.on("close", () => finish());
   });
 }
 
-function formatAmiAction(action: AmiAction): string {
+function formatAmiAction(action: AmiAction, actionId: string): string {
   const lines = [`Action: ${action.action}`];
   for (const [key, value] of Object.entries(action.fields || {})) {
     lines.push(`${key}: ${value}`);
   }
+  lines.push(`ActionID: ${actionId}`);
   lines.push("", "");
   return lines.join("\r\n");
+}
+
+function parseAmiFrame(raw: string): AmiFrame {
+  const fields = new Map<string, string>();
+  for (const line of raw.split("\r\n")) {
+    const separator = line.indexOf(":");
+    if (separator < 0) continue;
+    fields.set(line.slice(0, separator).toLowerCase(), line.slice(separator + 1).trim());
+  }
+
+  return {
+    response: fields.get("response") || null,
+    message: fields.get("message") || null,
+    raw,
+  };
 }
