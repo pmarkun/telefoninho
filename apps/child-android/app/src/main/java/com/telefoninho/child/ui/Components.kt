@@ -131,7 +131,7 @@ fun CodeInput(value: String, onValueChange: (String) -> Unit) {
         ),
         modifier = Modifier.fillMaxWidth().height(64.dp)
             .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
-            .background(Color(0xFFEAF8DD))
+            .background(PixelTheme.surface)
             .padding(top = 12.dp),
         decorationBox = { innerTextField ->
             Box(contentAlignment = Alignment.Center) {
@@ -161,7 +161,7 @@ fun PixelTextInput(value: String, onValueChange: (String) -> Unit, placeholder: 
         singleLine = true,
         modifier = Modifier.fillMaxWidth().height(58.dp)
             .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
-            .background(Color(0xFFEAF8DD))
+            .background(PixelTheme.surface)
             .padding(horizontal = 12.dp, vertical = 18.dp),
         decorationBox = { innerTextField ->
             Box(contentAlignment = Alignment.CenterStart) {
@@ -268,7 +268,7 @@ fun TelefoninhoFrame(
         modifier = Modifier.fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(PixelTheme.bg, Color(0xFFEAF7D8), Color(0xFFD8ECFF)),
+                    listOf(PixelTheme.bg, PixelTheme.gradientMid, PixelTheme.gradientEnd),
                 ),
             ).padding(18.dp),
         contentAlignment = Alignment.Center,
@@ -300,7 +300,7 @@ fun StatusBar8Bit(status: String, statusKind: CallStatus) {
     Row(
         modifier = Modifier.fillMaxWidth().height(42.dp)
             .border(3.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
-            .background(Color(0xFFEAF8DD))
+            .background(PixelTheme.surface)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

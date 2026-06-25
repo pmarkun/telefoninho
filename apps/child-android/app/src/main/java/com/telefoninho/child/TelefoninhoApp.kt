@@ -31,6 +31,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -87,10 +88,14 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
     val sipStatus by viewModel.sipStatus.collectAsState()
     val contactQrPayload by viewModel.contactQrPayload.collectAsState()
     val contactInviteLoading by viewModel.contactInviteLoading.collectAsState()
-    val refreshContactsLoading by viewModel.refreshContactsLoading.collectAsState()
     val speakerMode by viewModel.speakerMode.collectAsState()
     val ringtone by viewModel.ringtone.collectAsState()
+    val theme by viewModel.theme.collectAsState()
     var showServerSettings by remember { mutableStateOf(false) }
+
+    SideEffect {
+        PixelTheme.applyPalette(theme)
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = PixelTheme.bg) {
         if (showServerSettings) {
@@ -151,12 +156,12 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                         Screen.Settings -> SettingsScreen(
                             speakerMode = speakerMode,
                             ringtone = ringtone,
-                            refreshLoading = refreshContactsLoading,
+                            theme = theme,
                             error = error,
                             onOpenServerSettings = { showServerSettings = true },
                             onToggleSpeaker = { viewModel.setSpeakerMode(it) },
                             onRingtoneChange = { viewModel.setRingtone(it) },
-                            onRefreshContacts = { viewModel.refreshContacts() },
+                            onThemeChange = { viewModel.setTheme(it) },
                             onBack = { viewModel.closeSettings() },
                         )
 
@@ -299,50 +304,26 @@ private fun HomeScreen(
                 PixelButton(text = "AGENDA", onClick = onOpenContacts)
             }
             Box(modifier = Modifier.weight(1f)) {
-                PixelButton(text = "CONFIG", onClick = onOpenSettings)
+                PixelButton(text = "OPCOES", onClick = onOpenSettings)
             }
         }
     }
 }
 
 @Composable
-private fun ScanQrIconButton(text: String, onOpenQrScanner: () -> Unit) {
-    val context = LocalContext.current
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) onOpenQrScanner()
-    }
-    PixelIconButton(
-        text = text,
-        onClick = {
-            if (ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.CAMERA,
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                onOpenQrScanner()
-            } else {
-                cameraLauncher.launch(Manifest.permission.CAMERA)
-            }
-        },
-    )
-}
-
-@Composable
 private fun SettingsScreen(
     speakerMode: Boolean,
     ringtone: String,
-    refreshLoading: Boolean,
+    theme: String,
     error: String?,
     onOpenServerSettings: () -> Unit,
     onToggleSpeaker: (Boolean) -> Unit,
     onRingtoneChange: (String) -> Unit,
-    onRefreshContacts: () -> Unit,
+    onThemeChange: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    TelefoninhoFrame(status = "config", statusKind = CallStatus.Ready) {
-        PixelTitle(text = "CONFIG")
+    TelefoninhoFrame(status = "opcoes", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "OPCOES")
         Spacer(modifier = Modifier.height(18.dp))
         if (error != null) {
             Text(
@@ -374,9 +355,8 @@ private fun SettingsScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(
-            text = if (refreshLoading) "ATUALIZANDO..." else "ATUALIZAR CONTATOS",
-            enabled = !refreshLoading,
-            onClick = onRefreshContacts,
+            text = "THEME: ${themeLabel(theme)}",
+            onClick = { onThemeChange(nextTheme(theme)) },
         )
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(text = "VOLTAR", onClick = onBack)
@@ -393,6 +373,18 @@ private fun nextRingtone(value: String): String = when (value) {
     "BEEP" -> "COIN"
     "COIN" -> "LASER"
     else -> "BEEP"
+}
+
+private fun themeLabel(value: String): String = when (value) {
+    "squirtle" -> "SQUIRTLE"
+    "charmander" -> "CHARMANDER"
+    else -> "BULBASSAURO"
+}
+
+private fun nextTheme(value: String): String = when (value) {
+    "bulbassauro" -> "squirtle"
+    "squirtle" -> "charmander"
+    else -> "bulbassauro"
 }
 
 @Composable
@@ -436,21 +428,23 @@ private fun ContactsScreen(
         } else {
             ContactGrid(contacts = visibleContacts, onCall = onCall)
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "${page + 1}/$pageCount",
-            color = PixelTheme.fg,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Black,
-            fontFamily = FontFamily.Monospace,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(modifier = Modifier.weight(1f)) {
-                PixelButton(text = "ANT", enabled = page > 0, onClick = { page -= 1 })
-            }
-            Box(modifier = Modifier.weight(1f)) {
-                PixelButton(text = "PROX", enabled = page < pageCount - 1, onClick = { page += 1 })
+        if (pageCount > 1) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "${page + 1}/$pageCount",
+                color = PixelTheme.fg,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.weight(1f)) {
+                    PixelButton(text = "ANT", enabled = page > 0, onClick = { page -= 1 })
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    PixelButton(text = "PROX", enabled = page < pageCount - 1, onClick = { page += 1 })
+                }
             }
         }
         Spacer(modifier = Modifier.height(12.dp))

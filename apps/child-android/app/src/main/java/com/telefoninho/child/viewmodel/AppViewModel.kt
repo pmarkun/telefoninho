@@ -57,6 +57,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _ringtone = MutableStateFlow("BEEP")
     val ringtone: StateFlow<String> = _ringtone.asStateFlow()
 
+    private val _theme = MutableStateFlow("bulbassauro")
+    val theme: StateFlow<String> = _theme.asStateFlow()
+
     private var sipCredentials: SipCredentials? = null
 
     private val voipListener = object : VoipListener {
@@ -109,6 +112,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         observeApiBaseUrl()
         observeSpeakerMode()
         observeRingtone()
+        observeTheme()
         checkPaired()
     }
 
@@ -130,6 +134,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private fun observeRingtone() {
         viewModelScope.launch {
             configStore.ringtone.collect { _ringtone.value = it }
+        }
+    }
+
+    private fun observeTheme() {
+        viewModelScope.launch {
+            configStore.theme.collect { _theme.value = it }
         }
     }
 
@@ -343,6 +353,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun setRingtone(value: String) {
         viewModelScope.launch {
             configStore.saveRingtone(value)
+        }
+    }
+
+    fun setTheme(value: String) {
+        viewModelScope.launch {
+            configStore.saveTheme(value)
         }
     }
 
