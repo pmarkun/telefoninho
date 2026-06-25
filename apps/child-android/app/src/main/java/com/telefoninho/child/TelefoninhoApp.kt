@@ -364,13 +364,14 @@ private fun SettingsScreen(
     var previewingRingtone by remember { mutableStateOf(false) }
     LaunchedEffect(previewingRingtone, ringtone) {
         if (!previewingRingtone) return@LaunchedEffect
-        val toneGenerator = ToneGenerator(AudioManager.STREAM_RING, 100)
+        val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
         try {
             while (isActive) {
                 playRingtonePattern(toneGenerator, ringtone)
                 delay(700)
             }
         } finally {
+            toneGenerator.stopTone()
             toneGenerator.release()
         }
     }
