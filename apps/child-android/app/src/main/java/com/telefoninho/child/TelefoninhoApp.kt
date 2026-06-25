@@ -2,6 +2,8 @@ package com.telefoninho.child
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.ToneGenerator
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -31,7 +33,6 @@ import androidx.camera.view.PreviewView
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -76,6 +77,7 @@ import com.telefoninho.child.ui.PixelTitle
 import com.telefoninho.child.ui.TelefoninhoFrame
 import com.telefoninho.child.viewmodel.AppViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.util.concurrent.Executors
 
 @Composable
@@ -93,7 +95,7 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
     val theme by viewModel.theme.collectAsState()
     var showServerSettings by remember { mutableStateOf(false) }
 
-    SideEffect {
+    LaunchedEffect(theme) {
         PixelTheme.applyPalette(theme)
     }
 
@@ -225,7 +227,7 @@ private fun PairingScreen(
         Spacer(modifier = Modifier.height(30.dp))
         PixelCard {
             Text(
-                text = "CODIGO DOS PAIS", color = PixelTheme.fg,
+                text = "CÓDIGO DOS PAIS", color = PixelTheme.fg,
                 fontSize = 17.sp, fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
             )
@@ -317,7 +319,7 @@ private fun HomeScreen(
                 PixelButton(text = "AGENDA", onClick = onOpenContacts)
             }
             Box(modifier = Modifier.weight(1f)) {
-                PixelButton(text = "OPCOES", onClick = onOpenSettings)
+                PixelButton(text = "OPÇÕES", onClick = onOpenSettings)
             }
         }
     }
@@ -359,8 +361,22 @@ private fun SettingsScreen(
     onThemeChange: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    TelefoninhoFrame(status = "opcoes", statusKind = CallStatus.Ready) {
-        PixelTitle(text = "OPCOES")
+    var previewingRingtone by remember { mutableStateOf(false) }
+    LaunchedEffect(previewingRingtone, ringtone) {
+        if (!previewingRingtone) return@LaunchedEffect
+        val toneGenerator = ToneGenerator(AudioManager.STREAM_RING, 100)
+        try {
+            while (isActive) {
+                playRingtonePattern(toneGenerator, ringtone)
+                delay(700)
+            }
+        } finally {
+            toneGenerator.release()
+        }
+    }
+
+    TelefoninhoFrame(status = "opções", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "OPÇÕES")
         Spacer(modifier = Modifier.height(18.dp))
         if (error != null) {
             Text(
@@ -382,14 +398,22 @@ private fun SettingsScreen(
         PixelButton(text = "SERVIDOR", onClick = onOpenServerSettings)
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(
-            text = if (speakerMode) "AUDIO: SPEAKER" else "AUDIO: FONE",
+            text = if (speakerMode) "ÁUDIO: SPEAKER" else "ÁUDIO: FONE",
             onClick = { onToggleSpeaker(!speakerMode) },
         )
         Spacer(modifier = Modifier.height(12.dp))
-        PixelButton(
-            text = "RING: ${ringtoneLabel(ringtone)}",
-            onClick = { onRingtoneChange(nextRingtone(ringtone)) },
-        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(modifier = Modifier.weight(1f)) {
+                PixelButton(
+                    text = "TOQUE: ${ringtoneLabel(ringtone)}",
+                    onClick = { onRingtoneChange(nextRingtone(ringtone)) },
+                )
+            }
+            PixelIconButton(
+                text = if (previewingRingtone) "II" else ">",
+                onClick = { previewingRingtone = !previewingRingtone },
+            )
+        }
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(
             text = "THEME: ${themeLabel(theme)}",
@@ -397,6 +421,20 @@ private fun SettingsScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(text = "VOLTAR", onClick = onBack)
+    }
+}
+
+private suspend fun playRingtonePattern(toneGenerator: ToneGenerator, option: String) {
+    val pattern = when (option) {
+        "COIN" -> listOf(120, 80, 120, 260)
+        "LASER" -> listOf(80, 60, 80, 60, 220)
+        else -> listOf(180, 120, 180, 320)
+    }
+    pattern.forEachIndexed { index, duration ->
+        if (index % 2 == 0) {
+            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, duration)
+        }
+        delay(duration.toLong())
     }
 }
 
@@ -772,7 +810,7 @@ private fun IncomingCallScreen(contact: ContactInfo, onAccept: () -> Unit, onDec
         Spacer(modifier = Modifier.height(24.dp))
         PixelButton(text = "ATENDER", onClick = onAccept)
         Spacer(modifier = Modifier.height(12.dp))
-        PixelButton(text = "AGORA NAO", danger = true, onClick = onDecline)
+        PixelButton(text = "AGORA NÃO", danger = true, onClick = onDecline)
     }
 }
 
