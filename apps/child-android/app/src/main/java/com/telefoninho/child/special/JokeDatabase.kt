@@ -1,0 +1,36 @@
+package com.telefoninho.child.special
+
+object JokeDatabase {
+    val jokes: List<String> = listOf(
+        "Por que o livro de matemática ficou triste? Porque tinha muitos problemas.",
+        "O que o zero disse para o oito? Que cinto bonito!",
+        "Por que o computador foi ao médico? Porque estava com vírus.",
+        "Qual é o peixe que caiu do décimo andar? Aaaaaatum!",
+        "Por que a bicicleta caiu? Porque estava com sono de tanto rodar.",
+        "O que a impressora falou para a outra? Essa folha é sua ou é impressão minha?",
+        "Por que o tomate ficou vermelho? Porque viu o molho se trocando.",
+        "Qual é o contrário de papelada? Pá vestida.",
+        "Por que o lápis levou bronca? Porque apontou o erro dos outros.",
+        "O que a parede falou para o quadro? Você está muito pendurado.",
+        "Por que o relógio foi preso? Porque matou o tempo.",
+        "Qual é o animal mais antigo do mundo? A zebra, porque está em preto e branco.",
+        "O que a nuvem falou para a outra? Acho que vou chover de emoção.",
+        "Por que o pão entrou na academia? Para ficar mais massa.",
+        "Qual é o lugar favorito do cachorro no computador? A barra de rolagem.",
+        "O que o café disse quando chegou atrasado? Foi mal, eu coei.",
+        "Por que a banana foi ao médico? Porque não estava descascando bem.",
+        "Qual é o esporte favorito dos músicos? Tênis de mesa, porque tem raquete.",
+        "O que o chão falou para o pé? Estou sempre na sua base.",
+        "Por que o celular colocou óculos? Porque perdeu o foco.",
+        "Qual é o doce que sabe lutar? O brigadeiro, porque dá cada golpe de chocolate.",
+        "Por que o elevador é tão educado? Porque sempre dá passagem.",
+        "O que a cama falou para o travesseiro? Hoje eu estou deitada no assunto.",
+        "Por que a laranja parou no meio da rua? Porque acabou o suco.",
+        "Qual é o legume mais divertido? A batata, porque vive fritando de rir.",
+        "Por que o calendário pediu férias? Porque seus dias estavam contados.",
+        "O que o sapato falou para a meia? Você me completa.",
+        "Por que a estrela não foi à escola? Porque já era brilhante.",
+        "Qual é o instrumento que sempre concorda? O simbal.",
+        "Por que o guarda-chuva ganhou prêmio? Porque cobriu muito bem o evento.",
+    )
+}

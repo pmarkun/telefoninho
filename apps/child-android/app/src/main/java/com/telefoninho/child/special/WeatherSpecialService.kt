@@ -1,25 +1,16 @@
 package com.telefoninho.child.special
 
 import android.content.Context
-import android.media.AudioAttributes
-import android.os.Bundle
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDate
-import java.util.Locale
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 class WeatherSpecialService(private val context: Context) : SpecialDialService {
     override val extension = "170"
@@ -28,7 +19,7 @@ class WeatherSpecialService(private val context: Context) : SpecialDialService {
     override val colorKey = "blue"
 
     private var job: Job? = null
-    private var tts: TextToSpeech? = null
+    private val speechPlayer = AndroidSpeechPlayer(context)
 
     override fun start(scope: CoroutineScope, onFinished: () -> Unit, onError: (String) -> Unit) {
         stop()
@@ -36,7 +27,7 @@ class WeatherSpecialService(private val context: Context) : SpecialDialService {
             try {
                 val forecast = fetchTomorrowForecast()
                 val message = buildForecastMessage(forecast)
-                speak(message)
+                speechPlayer.speak(message, "weather-170")
                 onFinished()
             } catch (e: CancellationException) {
                 throw e
@@ -56,9 +47,7 @@ class WeatherSpecialService(private val context: Context) : SpecialDialService {
     }
 
     private fun releaseTts() {
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
+        speechPlayer.stop()
     }
 
     private suspend fun fetchTomorrowForecast(): WeatherForecast =
@@ -124,70 +113,6 @@ class WeatherSpecialService(private val context: Context) : SpecialDialService {
             "A temperatura fica entre $min e $max graus. " +
             "$rainText $clothes"
     }
-
-    private suspend fun speak(message: String) {
-        val engine = createTts()
-        tts = engine
-        val result = engine.setLanguage(Locale("pt", "BR"))
-        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-            engine.language = Locale.getDefault()
-        }
-        engine.setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build(),
-        )
-        delay(450)
-        awaitSpeech(engine, message)
-    }
-
-    private suspend fun createTts(): TextToSpeech =
-        suspendCancellableCoroutine { cont ->
-            var engine: TextToSpeech? = null
-            engine = TextToSpeech(context.applicationContext) { status ->
-                if (status == TextToSpeech.SUCCESS) {
-                    val readyEngine = engine
-                    if (readyEngine != null) {
-                        cont.resume(readyEngine)
-                    } else {
-                        cont.resumeWithException(IllegalStateException("Voz indisponível"))
-                    }
-                } else {
-                    cont.resumeWithException(IllegalStateException("Voz indisponível"))
-                }
-            }
-            cont.invokeOnCancellation {
-                engine.stop()
-                engine.shutdown()
-            }
-        }
-
-    private suspend fun awaitSpeech(engine: TextToSpeech, message: String) =
-        suspendCancellableCoroutine { cont ->
-            val utteranceId = "weather-170-${System.nanoTime()}"
-            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) = Unit
-
-                override fun onDone(doneUtteranceId: String?) {
-                    if (doneUtteranceId == utteranceId && cont.isActive) {
-                        cont.resume(Unit)
-                    }
-                }
-
-                @Deprecated("Deprecated in Java")
-                override fun onError(errorUtteranceId: String?) {
-                    if (errorUtteranceId == utteranceId && cont.isActive) {
-                        cont.resumeWithException(IllegalStateException("Erro ao falar previsão"))
-                    }
-                }
-            })
-            val result = engine.speak(message, TextToSpeech.QUEUE_FLUSH, Bundle(), utteranceId)
-            if (result == TextToSpeech.ERROR) {
-                cont.resumeWithException(IllegalStateException("Erro ao falar previsão"))
-            }
-            cont.invokeOnCancellation { engine.stop() }
-        }
 
     private data class WeatherForecast(
         val city: String,

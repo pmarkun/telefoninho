@@ -10,6 +10,7 @@ import com.telefoninho.child.data.ContactInfo
 import com.telefoninho.child.data.Screen
 import com.telefoninho.child.data.SipCredentials
 import com.telefoninho.child.data.UiState
+import com.telefoninho.child.special.JokeSpecialService
 import com.telefoninho.child.special.SpecialDialService
 import com.telefoninho.child.special.SpecialDialServiceRegistry
 import com.telefoninho.child.special.WeatherSpecialService
@@ -27,7 +28,10 @@ import org.json.JSONTokener
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val configStore = ConfigStore(application)
     private val specialDialServices = SpecialDialServiceRegistry(
-        listOf(WeatherSpecialService(application)),
+        listOf(
+            WeatherSpecialService(application),
+            JokeSpecialService(application),
+        ),
     )
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
