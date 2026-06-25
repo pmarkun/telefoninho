@@ -32,6 +32,21 @@ export const updateAllowedCallSchema = z.object({
   enabled: z.boolean(),
 });
 
+export const contactInviteQrPayloadSchema = z.object({
+  type: z.literal("telefoninho-contact"),
+  version: z.literal(1),
+  token: z.string().min(32).max(256),
+});
+
+export const claimContactInviteSchema = z.object({
+  token: z.string().min(32).max(256),
+  requesterMemberId: z.string().min(1),
+});
+
+export const resolveContactRequestSchema = z.object({
+  resolvedByParentId: z.string().min(1).optional(),
+});
+
 export const claimPairingSchema = z.object({
   code: pairingCodeSchema,
   deviceName: z.string().min(1).max(128),

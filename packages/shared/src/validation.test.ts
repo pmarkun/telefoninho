@@ -4,7 +4,10 @@ import {
   createMemberSchema,
   allowedCallSchema,
   claimPairingSchema,
+  claimContactInviteSchema,
+  contactInviteQrPayloadSchema,
   pairingCodeSchema,
+  resolveContactRequestSchema,
 } from "./validation";
 
 describe("loginSchema", () => {
@@ -63,5 +66,46 @@ describe("pairingCodeSchema", () => {
 
   it("should reject non-digit code", () => {
     expect(pairingCodeSchema.safeParse("abcdef").success).toBe(false);
+  });
+});
+
+describe("contact invite schemas", () => {
+  it("should accept a versioned QR payload", () => {
+    const result = contactInviteQrPayloadSchema.safeParse({
+      type: "telefoninho-contact",
+      version: 1,
+      token: "a".repeat(32),
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject QR payloads with secrets or wrong type", () => {
+    const result = contactInviteQrPayloadSchema.safeParse({
+      type: "telefoninho-pairing",
+      version: 1,
+      token: "a".repeat(32),
+      password: "secret",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should accept contact invite claims", () => {
+    const result = claimContactInviteSchema.safeParse({
+      token: "b".repeat(32),
+      requesterMemberId: "member_1",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject short invite tokens", () => {
+    const result = claimContactInviteSchema.safeParse({
+      token: "short",
+      requesterMemberId: "member_1",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should accept an empty resolver body", () => {
+    expect(resolveContactRequestSchema.safeParse({}).success).toBe(true);
   });
 });

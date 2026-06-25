@@ -39,6 +39,58 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
             }
         }
 
+    suspend fun generateContactInvite(memberId: String): ContactInviteResponse =
+        withContext(Dispatchers.IO) {
+            val conn = URL("$baseUrl/members/$memberId/contact-invite").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 10_000
+
+            try {
+                val responseCode = conn.responseCode
+                if (responseCode != 200) {
+                    val error = conn.errorStream?.bufferedReader()?.readText() ?: "Unknown error"
+                    throw Exception("Invite failed ($responseCode): $error")
+                }
+                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                ContactInviteResponse(
+                    token = json.getString("token"),
+                    expiresAt = json.getString("expiresAt"),
+                    qrPayload = json.getJSONObject("qrPayload").toString(),
+                )
+            } finally {
+                conn.disconnect()
+            }
+        }
+
+    suspend fun claimContactInvite(token: String, requesterMemberId: String): String =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().apply {
+                put("token", token)
+                put("requesterMemberId", requesterMemberId)
+            }
+
+            val conn = URL("$baseUrl/contact-invites/claim").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 10_000
+
+            try {
+                conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                val responseCode = conn.responseCode
+                if (responseCode != 200) {
+                    val error = conn.errorStream?.bufferedReader()?.readText() ?: "Unknown error"
+                    throw Exception("Contact invite failed ($responseCode): $error")
+                }
+                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                json.optString("status", "pending")
+            } finally {
+                conn.disconnect()
+            }
+        }
+
     private fun parsePairingResponse(json: JSONObject): PairingResponse {
         val profile = json.getJSONObject("profile")
         val sip = json.getJSONObject("sip")

@@ -8,6 +8,7 @@ import { registerPairingRoutes } from "./routes/pairing.js";
 import { registerChildRoutes } from "./routes/child.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 import { registerFamilyRoutes } from "./routes/families.js";
+import { registerContactInviteRoutes } from "./routes/contact-invites.js";
 
 const server = fastify({ logger: true });
 
@@ -19,6 +20,7 @@ registerFamilyRoutes(server);
 registerMemberRoutes(server);
 registerAllowedCallRoutes(server);
 registerPairingRoutes(server);
+registerContactInviteRoutes(server);
 registerChildRoutes(server);
 registerAdminRoutes(server);
 

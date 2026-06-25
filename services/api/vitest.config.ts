@@ -1,6 +1,13 @@
 import { defineConfig } from "vitest/config";
+import { resolve } from "node:path";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@telefoninho/shared/validation": resolve(__dirname, "../../packages/shared/src/validation.ts"),
+      "@telefoninho/shared/types": resolve(__dirname, "../../packages/shared/src/types.ts"),
+    },
+  },
   test: {
     globals: true,
     environment: "node",

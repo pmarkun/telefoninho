@@ -70,6 +70,28 @@ export const pairingCodes = sqliteTable("pairing_code", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+export const contactInvites = sqliteTable("contact_invite", {
+  id: text("id").primaryKey(),
+  targetMemberId: text("target_member_id").notNull().references(() => familyMembers.id),
+  token: text("token").notNull().unique(),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  revokedAt: integer("revoked_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export const contactRequests = sqliteTable("contact_request", {
+  id: text("id").primaryKey(),
+  inviteId: text("invite_id").notNull().references(() => contactInvites.id),
+  familyId: text("family_id").notNull().references(() => families.id),
+  requesterMemberId: text("requester_member_id").notNull().references(() => familyMembers.id),
+  targetMemberId: text("target_member_id").notNull().references(() => familyMembers.id),
+  status: text("status").notNull().default("pending"),
+  resolvedByParentId: text("resolved_by_parent_id").references(() => parentUsers.id),
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
 export const callLogs = sqliteTable("call_log", {
   id: text("id").primaryKey(),
   familyId: text("family_id").notNull().references(() => families.id),

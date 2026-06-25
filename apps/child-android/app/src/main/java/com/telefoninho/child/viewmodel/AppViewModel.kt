@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val configStore = ConfigStore(application)
@@ -37,14 +38,29 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _apiBaseUrl = MutableStateFlow("")
     val apiBaseUrl: StateFlow<String> = _apiBaseUrl.asStateFlow()
 
+    private val _sipStatus = MutableStateFlow("SIP conectando")
+    val sipStatus: StateFlow<String> = _sipStatus.asStateFlow()
+
+    private val _contactQrPayload = MutableStateFlow<String?>(null)
+    val contactQrPayload: StateFlow<String?> = _contactQrPayload.asStateFlow()
+
+    private val _contactInviteLoading = MutableStateFlow(false)
+    val contactInviteLoading: StateFlow<Boolean> = _contactInviteLoading.asStateFlow()
+
     private var sipCredentials: SipCredentials? = null
 
     private val voipListener = object : VoipListener {
-        override fun onRegistered() {}
+        override fun onRegistered() {
+            _sipStatus.value = "SIP conectado"
+            _error.value = null
+        }
 
-        override fun onUnregistered() {}
+        override fun onUnregistered() {
+            _sipStatus.value = "SIP desconectado"
+        }
 
         override fun onRegistrationFailed(reason: String) {
+            _sipStatus.value = "SIP falhou"
             _error.value = "Falha ao registrar SIP: $reason"
         }
 
@@ -61,8 +77,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         override fun onCallConnected() {
             val current = _screen.value
-            if (current is Screen.Calling) {
-                _screen.value = Screen.InCall(current.contact)
+            _screen.value = when (current) {
+                is Screen.Calling -> Screen.InCall(current.contact)
+                is Screen.Incoming -> Screen.InCall(current.contact)
+                else -> current
             }
         }
 
@@ -97,6 +115,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     sipCredentials = config.sip
                     _uiState.value = UiState.Ready(config.profile, config.contacts)
                     _screen.value = Screen.Home
+                    _sipStatus.value = "SIP conectando"
                     voipManager.start(config.sip)
                 } else {
                     _uiState.value = UiState.Pairing
@@ -132,6 +151,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = UiState.Ready(config.profile, config.contacts)
                 _screen.value = Screen.Home
 
+                _sipStatus.value = "SIP conectando"
                 voipManager.start(config.sip)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Erro de conexão"
@@ -142,8 +162,80 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun callContact(contact: ContactInfo) {
+        if (contact.sipExtension.isBlank()) {
+            _error.value = "Contato sem ramal SIP"
+            return
+        }
         _screen.value = Screen.Calling(contact)
         voipManager.call(contact.sipExtension)
+    }
+
+    fun openMyQr() {
+        _screen.value = Screen.MyQr
+        if (_contactQrPayload.value == null) {
+            generateContactInvite()
+        }
+    }
+
+    fun closeMyQr() {
+        _screen.value = Screen.Home
+    }
+
+    fun openQrScanner() {
+        _screen.value = Screen.ScanQr
+    }
+
+    fun closeQrScanner() {
+        _screen.value = Screen.Home
+    }
+
+    fun generateContactInvite() {
+        val profile = (_uiState.value as? UiState.Ready)?.profile ?: return
+        if (_contactInviteLoading.value) return
+
+        _contactInviteLoading.value = true
+        _error.value = null
+        viewModelScope.launch {
+            try {
+                val baseUrl = configStore.apiBaseUrl.first()
+                val response = ApiClient(baseUrl).generateContactInvite(profile.memberId)
+                _contactQrPayload.value = response.qrPayload
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Erro ao gerar QR"
+            } finally {
+                _contactInviteLoading.value = false
+            }
+        }
+    }
+
+    fun claimContactInviteFromQr(rawValue: String) {
+        val profile = (_uiState.value as? UiState.Ready)?.profile ?: return
+        viewModelScope.launch {
+            try {
+                val payload = JSONObject(rawValue)
+                if (
+                    payload.optString("type") != "telefoninho-contact" ||
+                    payload.optInt("version") != 1
+                ) {
+                    _error.value = "QR nao e convite do Telefoninho"
+                    return@launch
+                }
+
+                val baseUrl = configStore.apiBaseUrl.first()
+                val status = ApiClient(baseUrl).claimContactInvite(
+                    token = payload.getString("token"),
+                    requesterMemberId = profile.memberId,
+                )
+                _error.value = if (status == "auto_approved") {
+                    "Contato adicionado"
+                } else {
+                    "Pedido enviado aos pais"
+                }
+                _screen.value = Screen.Home
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Erro ao ler QR"
+            }
+        }
     }
 
     fun acceptCall() {
