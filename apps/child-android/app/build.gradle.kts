@@ -7,7 +7,7 @@ android {
     namespace = "com.telefoninho.child"
     compileSdk = 35
 
-    val defaultApiBaseUrl = "https://vps68379.publiccloud.com.br"
+    val defaultApiBaseUrl = "https://api.telefoninho.com.br"
     val envFile = file("../../../.env")
     val apiBaseUrl = if (envFile.exists()) {
         envFile.readLines()
@@ -18,6 +18,27 @@ android {
     } else {
         defaultApiBaseUrl
     }
+    val releaseStoreFile = providers.environmentVariable("TELEFONINHO_UPLOAD_STORE_FILE").orNull
+    val releaseStorePassword = providers.environmentVariable("TELEFONINHO_UPLOAD_STORE_PASSWORD").orNull
+    val releaseKeyAlias = providers.environmentVariable("TELEFONINHO_UPLOAD_KEY_ALIAS").orNull
+    val releaseKeyPassword = providers.environmentVariable("TELEFONINHO_UPLOAD_KEY_PASSWORD").orNull
+    val hasReleaseSigning = listOf(
+        releaseStoreFile,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword,
+    ).all { !it.isNullOrBlank() }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.telefoninho.child"
@@ -26,6 +47,19 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
     }
 
     compileOptions {
