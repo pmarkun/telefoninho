@@ -103,6 +103,7 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
     suspend fun sendMessage(toMemberId: String, message: String, authToken: String): ShortMessage =
         withContext(Dispatchers.IO) {
             val conn = authenticatedConnection("$baseUrl/child/messages", "POST", authToken).apply {
+                setRequestProperty("Content-Type", "application/json")
                 doOutput = true
             }
             val body = JSONObject().apply {
@@ -125,8 +126,12 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
                 "$baseUrl/child/messages/$messageId",
                 "DELETE",
                 authToken,
-            )
+            ).apply {
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+            }
             try {
+                conn.outputStream.use { it.write("{}".toByteArray(Charsets.UTF_8)) }
                 val responseCode = conn.responseCode
                 if (responseCode != 204) throw apiError(conn, "Delete failed", responseCode)
             } finally {
@@ -218,7 +223,6 @@ class ApiClient(private val baseUrl: String = BuildConfig.API_BASE_URL) {
         authToken: String,
     ): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
         requestMethod = method
-        setRequestProperty("Content-Type", "application/json")
         setRequestProperty("Authorization", "Bearer $authToken")
         connectTimeout = 10_000
         readTimeout = 10_000
