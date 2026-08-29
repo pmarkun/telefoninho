@@ -62,6 +62,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.telefoninho.child.data.CallStatus
 import com.telefoninho.child.data.ContactInfo
 import com.telefoninho.child.data.Screen
+import com.telefoninho.child.data.ShortMessage
 import com.telefoninho.child.data.UiState
 import com.telefoninho.child.ui.BigContactHero
 import com.telefoninho.child.ui.Bips
@@ -94,6 +95,9 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
     val ringtone by viewModel.ringtone.collectAsState()
     val theme by viewModel.theme.collectAsState()
     val alwaysOn by viewModel.alwaysOn.collectAsState()
+    val messages by viewModel.messages.collectAsState()
+    val messagesLoading by viewModel.messagesLoading.collectAsState()
+    val messageSending by viewModel.messageSending.collectAsState()
     var showServerSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(theme) {
@@ -158,6 +162,7 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             error = error,
                             onOpenSettings = { viewModel.openSettings() },
                             onOpenContacts = { viewModel.openContacts() },
+                            onOpenMessages = { viewModel.openMessages() },
                             onCall = { viewModel.callExtension(it) },
                         )
 
@@ -182,6 +187,22 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             onCall = { viewModel.callContact(it) },
                             onOpenMyContact = { viewModel.openMyQr() },
                             onAddContact = { viewModel.openQrScanner() },
+                            onBack = { viewModel.closeSettings() },
+                        )
+
+                        Screen.Messages -> MessagesScreen(
+                            currentMemberId = state.profile.memberId,
+                            contacts = state.contacts,
+                            messages = messages,
+                            loading = messagesLoading,
+                            sending = messageSending,
+                            error = error,
+                            onRefresh = { viewModel.refreshMessages() },
+                            onAutoRefresh = { viewModel.refreshMessages(showError = false) },
+                            onSend = { contact, body, onSent ->
+                                viewModel.sendMessage(contact, body, onSent)
+                            },
+                            onDelete = { viewModel.deleteMessage(it) },
                             onBack = { viewModel.closeSettings() },
                         )
 
@@ -272,6 +293,7 @@ private fun HomeScreen(
     error: String?,
     onOpenSettings: () -> Unit,
     onOpenContacts: () -> Unit,
+    onOpenMessages: () -> Unit,
     onCall: (String) -> Unit,
 ) {
     var extension by remember { mutableStateOf("") }
@@ -327,10 +349,142 @@ private fun HomeScreen(
             Box(modifier = Modifier.weight(1f)) {
                 PixelButton(text = "AGENDA", onClick = onOpenContacts)
             }
+            PixelIconButton(text = "✉", onClick = onOpenMessages)
             Box(modifier = Modifier.weight(1f)) {
                 PixelButton(text = "OPÇÕES", onClick = onOpenSettings)
             }
         }
+    }
+}
+
+@Composable
+private fun MessagesScreen(
+    currentMemberId: String,
+    contacts: List<ContactInfo>,
+    messages: List<ShortMessage>,
+    loading: Boolean,
+    sending: Boolean,
+    error: String?,
+    onRefresh: () -> Unit,
+    onAutoRefresh: () -> Unit,
+    onSend: (ContactInfo, String, () -> Unit) -> Unit,
+    onDelete: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val enabledContacts = contacts.filter { it.enabled && it.memberId.isNotBlank() }
+    var selectedIndex by remember(enabledContacts.size) { mutableIntStateOf(0) }
+    var messageBody by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay(15_000)
+            onAutoRefresh()
+        }
+    }
+
+    TelefoninhoFrame(status = "correio", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "CORREIO")
+        Spacer(modifier = Modifier.height(18.dp))
+        PixelCard {
+            if (enabledContacts.isEmpty()) {
+                Text(
+                    text = "NENHUM CONTATO LIBERADO",
+                    color = PixelTheme.fg,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                val selected = enabledContacts[selectedIndex.coerceAtMost(enabledContacts.lastIndex)]
+                PixelButton(
+                    text = "PARA: ${selected.displayName.uppercase()}",
+                    onClick = { selectedIndex = (selectedIndex + 1) % enabledContacts.size },
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                PixelTextInput(
+                    value = messageBody,
+                    onValueChange = { messageBody = it.take(160) },
+                    placeholder = "ESCREVA UMA MENSAGEM",
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "${messageBody.length}/160",
+                    color = PixelTheme.fg,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.End,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                PixelButton(
+                    text = if (sending) "ENVIANDO..." else "ENVIAR",
+                    enabled = messageBody.isNotBlank() && !sending,
+                    onClick = {
+                        onSend(selected, messageBody) { messageBody = "" }
+                    },
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(text = if (loading) "ATUALIZANDO..." else "ATUALIZAR", enabled = !loading, onClick = onRefresh)
+        if (error != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = error,
+                color = ComposeColor(0xFFC93F3F),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        if (!loading && messages.isEmpty()) {
+            Text(
+                text = "CAIXA VAZIA",
+                color = PixelTheme.fg,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        messages.forEach { message ->
+            PixelCard {
+                val sentByMe = message.fromMemberId == currentMemberId
+                Text(
+                    text = if (sentByMe) "PARA ${message.toDisplayName.uppercase()}" else "DE ${message.fromDisplayName.uppercase()}",
+                    color = PixelTheme.fg,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = message.body,
+                    color = PixelTheme.fg,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = message.createdAt.replace('T', ' ').take(16),
+                        color = PixelTheme.fg.copy(alpha = 0.65f),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                    PixelIconButton(text = "X", danger = true, onClick = { onDelete(message.id) })
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        PixelButton(text = "VOLTAR", onClick = onBack)
     }
 }
 

@@ -12,6 +12,7 @@ import com.telefoninho.child.data.AppConfig
 import com.telefoninho.child.data.ConfigStore
 import com.telefoninho.child.data.ContactInfo
 import com.telefoninho.child.data.Screen
+import com.telefoninho.child.data.ShortMessage
 import com.telefoninho.child.data.SipCredentials
 import com.telefoninho.child.data.UiState
 import com.telefoninho.child.special.JokeSpecialService
@@ -76,6 +77,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _alwaysOn = MutableStateFlow(true)
     val alwaysOn: StateFlow<Boolean> = _alwaysOn.asStateFlow()
+
+    private val _messages = MutableStateFlow<List<ShortMessage>>(emptyList())
+    val messages: StateFlow<List<ShortMessage>> = _messages.asStateFlow()
+
+    private val _messagesLoading = MutableStateFlow(false)
+    val messagesLoading: StateFlow<Boolean> = _messagesLoading.asStateFlow()
+
+    private val _messageSending = MutableStateFlow(false)
+    val messageSending: StateFlow<Boolean> = _messageSending.asStateFlow()
 
     private var sipCredentials: SipCredentials? = null
     private var activeSpecialService: SpecialDialService? = null
@@ -238,6 +248,58 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openContacts() {
         _screen.value = Screen.Contacts
+    }
+
+    fun openMessages() {
+        _screen.value = Screen.Messages
+        refreshMessages()
+    }
+
+    fun refreshMessages(showError: Boolean = true) {
+        if (_messagesLoading.value) return
+        _messagesLoading.value = true
+        if (showError) _error.value = null
+        viewModelScope.launch {
+            try {
+                val client = authenticatedApiClient()
+                _messages.value = client.first.getMessages(client.second)
+            } catch (e: Exception) {
+                if (showError) _error.value = e.message ?: "Erro ao atualizar mensagens"
+            } finally {
+                _messagesLoading.value = false
+            }
+        }
+    }
+
+    fun sendMessage(contact: ContactInfo, body: String, onSent: () -> Unit) {
+        val normalized = body.trim()
+        if (normalized.isBlank() || normalized.length > 160 || _messageSending.value) return
+        _messageSending.value = true
+        _error.value = null
+        viewModelScope.launch {
+            try {
+                val client = authenticatedApiClient()
+                val sent = client.first.sendMessage(contact.memberId, normalized, client.second)
+                _messages.value = listOf(sent) + _messages.value.filterNot { it.id == sent.id }
+                onSent()
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Erro ao enviar mensagem"
+            } finally {
+                _messageSending.value = false
+            }
+        }
+    }
+
+    fun deleteMessage(messageId: String) {
+        viewModelScope.launch {
+            try {
+                val client = authenticatedApiClient()
+                client.first.deleteMessage(messageId, client.second)
+                _messages.value = _messages.value.filterNot { it.id == messageId }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Erro ao apagar mensagem"
+            }
+        }
     }
 
     fun callContact(contact: ContactInfo) {
@@ -521,6 +583,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         configStore.saveConfig(updatedConfig)
         sipCredentials = updatedConfig.sip
         _uiState.value = UiState.Ready(updatedConfig.profile, updatedConfig.contacts)
+    }
+
+    private suspend fun authenticatedApiClient(): Pair<ApiClient, String> {
+        val config = configStore.loadConfig() ?: error("Telefone nao pareado")
+        val token = config.token ?: error("Repareie este aparelho para usar mensagens")
+        return ApiClient(configStore.apiBaseUrl.first()) to token
     }
 
     override fun onCleared() {

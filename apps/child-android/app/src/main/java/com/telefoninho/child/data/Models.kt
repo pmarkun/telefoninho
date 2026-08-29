@@ -25,6 +25,16 @@ data class ContactInfo(
     val enabled: Boolean,
 )
 
+data class ShortMessage(
+    val id: String,
+    val fromMemberId: String,
+    val fromDisplayName: String,
+    val toMemberId: String,
+    val toDisplayName: String,
+    val body: String,
+    val createdAt: String,
+)
+
 data class AppSettings(
     val showDialpad: Boolean,
     val allowEmergencyButton: Boolean,
@@ -58,6 +68,7 @@ sealed interface Screen {
     data object Home : Screen
     data object Settings : Screen
     data object Contacts : Screen
+    data object Messages : Screen
     data object MyQr : Screen
     data object ScanQr : Screen
     data class Calling(val contact: ContactInfo) : Screen
