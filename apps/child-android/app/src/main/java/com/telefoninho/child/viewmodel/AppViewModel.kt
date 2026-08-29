@@ -34,7 +34,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         ),
     )
 
-    private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
+    private val _uiState = MutableStateFlow<UiState>(UiState.Pairing)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private val _screen = MutableStateFlow<Screen>(Screen.Pairing)

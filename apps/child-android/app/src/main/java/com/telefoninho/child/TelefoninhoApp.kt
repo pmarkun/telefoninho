@@ -674,6 +674,9 @@ private fun QrCameraPreview(onResult: (String) -> Unit) {
     )
 }
 
+@androidx.annotation.OptIn(
+    markerClass = [androidx.camera.core.ExperimentalGetImage::class],
+)
 private fun analyzeQrFrame(
     imageProxy: ImageProxy,
     scanner: BarcodeScanner,
