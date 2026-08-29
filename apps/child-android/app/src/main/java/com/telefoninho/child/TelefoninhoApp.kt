@@ -10,9 +10,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,10 +48,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.graphics.Bitmap
@@ -67,6 +73,10 @@ import com.telefoninho.child.data.ContactInfo
 import com.telefoninho.child.data.Screen
 import com.telefoninho.child.data.ShortMessage
 import com.telefoninho.child.data.UiState
+import com.telefoninho.child.game.SnakeDirection
+import com.telefoninho.child.game.SnakeGameState
+import com.telefoninho.child.game.advanceSnake
+import com.telefoninho.child.game.newSnakeGame
 import com.telefoninho.child.ui.BigContactHero
 import com.telefoninho.child.ui.Bips
 import com.telefoninho.child.ui.CodeInput
@@ -211,6 +221,8 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             onBack = { viewModel.closeSettings() },
                         )
 
+                        Screen.Snake -> SnakeScreen(onBack = { viewModel.closeSnake() })
+
                         Screen.MyQr -> MyQrScreen(
                             payload = contactQrPayload,
                             loading = contactInviteLoading,
@@ -302,11 +314,15 @@ private fun HomeScreen(
     onCall: (String) -> Unit,
 ) {
     var extension by remember { mutableStateOf("") }
+    val compact = LocalConfiguration.current.screenHeightDp < 840
+    val gap = if (compact) 6.dp else 12.dp
+    val keypadSize = if (compact) 52.dp else 64.dp
+    val actionHeight = if (compact) 56.dp else 72.dp
     val statusKind = if (sipStatus == "SIP conectado") CallStatus.Ready else CallStatus.Calling
     TelefoninhoFrame(status = sipStatus, statusKind = statusKind) {
         PixelTitle(text = "TELEFONINHO")
-        Spacer(modifier = Modifier.height(18.dp))
-        PixelCard {
+        Spacer(modifier = Modifier.height(if (compact) 8.dp else 18.dp))
+        PixelCard(contentPadding = if (compact) 10.dp else 16.dp) {
             Text(
                 text = extension.ifBlank { "----" },
                 color = PixelTheme.fg,
@@ -315,7 +331,7 @@ private fun HomeScreen(
                 fontFamily = FontFamily.Monospace,
             )
             if (contacts.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
                 Text(
                     text = "${contacts.size} CONTATOS",
                     color = PixelTheme.fg,
@@ -325,7 +341,7 @@ private fun HomeScreen(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(gap))
         if (error != null) {
             Text(
                 text = error, color = ComposeColor(0xFFC93F3F),
@@ -336,9 +352,16 @@ private fun HomeScreen(
         }
         DialpadKeys(
             extension = extension,
+            keySize = keypadSize,
+            gap = gap,
             onExtensionChange = { extension = it },
         )
-        PixelButton(text = "LIGAR", enabled = extension.isNotBlank(), onClick = { onCall(extension) })
+        PixelButton(
+            text = "LIGAR",
+            enabled = extension.isNotBlank(),
+            height = actionHeight,
+            onClick = { onCall(extension) },
+        )
         if (contacts.isEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
@@ -349,15 +372,149 @@ private fun HomeScreen(
                 textAlign = TextAlign.Center,
             )
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Spacer(modifier = Modifier.height(gap))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
             Box(modifier = Modifier.weight(1f)) {
-                PixelButton(text = "AGENDA", onClick = onOpenContacts)
+                PixelButton(text = "AGENDA", height = actionHeight, onClick = onOpenContacts)
             }
-            PixelIconButton(text = "✉", onClick = onOpenMessages)
+            PixelIconButton(text = "✉", size = actionHeight, onClick = onOpenMessages)
             Box(modifier = Modifier.weight(1f)) {
-                PixelButton(text = "OPÇÕES", onClick = onOpenSettings)
+                PixelButton(text = "OPÇÕES", height = actionHeight, onClick = onOpenSettings)
             }
+        }
+    }
+}
+
+@Composable
+private fun SnakeScreen(onBack: () -> Unit) {
+    var game by remember { mutableStateOf(newSnakeGame()) }
+    var requestedDirection by remember { mutableStateOf(SnakeDirection.Right) }
+    val compact = LocalConfiguration.current.screenHeightDp < 840
+    val controlSize = if (compact) 52.dp else 64.dp
+
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay((230L - game.score * 8L).coerceAtLeast(100L))
+            if (!game.gameOver) {
+                game = advanceSnake(game, requestedDirection)
+            }
+        }
+    }
+
+    TelefoninhoFrame(status = "ramal 67", statusKind = CallStatus.Ready) {
+        PixelTitle(text = "COBRINHA")
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "PONTOS: ${game.score}",
+            color = PixelTheme.fg,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        SnakeBoard(game, compact)
+        Spacer(modifier = Modifier.height(10.dp))
+        if (game.gameOver) {
+            Text(
+                text = "FIM DE JOGO!",
+                color = ComposeColor(0xFFC93F3F),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            PixelButton(
+                text = "JOGAR DE NOVO",
+                onClick = {
+                    game = newSnakeGame()
+                    requestedDirection = SnakeDirection.Right
+                },
+            )
+        } else {
+            PixelIconButton(
+                text = "^",
+                size = controlSize,
+                onClick = { requestedDirection = SnakeDirection.Up },
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            ) {
+                PixelIconButton(
+                    text = "<",
+                    size = controlSize,
+                    onClick = { requestedDirection = SnakeDirection.Left },
+                )
+                PixelIconButton(
+                    text = "v",
+                    size = controlSize,
+                    onClick = { requestedDirection = SnakeDirection.Down },
+                )
+                PixelIconButton(
+                    text = ">",
+                    size = controlSize,
+                    onClick = { requestedDirection = SnakeDirection.Right },
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        PixelButton(
+            text = "SAIR DO JOGO",
+            height = if (compact) 56.dp else 72.dp,
+            onClick = onBack,
+        )
+    }
+}
+
+@Composable
+private fun SnakeBoard(game: SnakeGameState, compact: Boolean) {
+    val gridColor = PixelTheme.fg.copy(alpha = 0.08f)
+    val snakeColor = PixelTheme.accent
+    val headColor = PixelTheme.fg
+    val foodColor = ComposeColor(0xFFC93F3F)
+    Box(
+        modifier = Modifier.fillMaxWidth(if (compact) 0.82f else 0.92f)
+            .aspectRatio(1f)
+            .border(4.dp, PixelTheme.fg)
+            .background(PixelTheme.surface)
+            .padding(5.dp),
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val cellWidth = size.width / game.width
+            val cellHeight = size.height / game.height
+            for (y in 0 until game.height) {
+                for (x in 0 until game.width) {
+                    if ((x + y) % 2 == 0) {
+                        drawRect(
+                            color = gridColor,
+                            topLeft = Offset(x * cellWidth, y * cellHeight),
+                            size = Size(cellWidth, cellHeight),
+                        )
+                    }
+                }
+            }
+            val inset = 1.5.dp.toPx()
+            game.snake.forEachIndexed { index, point ->
+                drawRect(
+                    color = if (index == 0) headColor else snakeColor,
+                    topLeft = Offset(point.x * cellWidth + inset, point.y * cellHeight + inset),
+                    size = Size(cellWidth - inset * 2, cellHeight - inset * 2),
+                )
+            }
+            drawRect(
+                color = foodColor,
+                topLeft = Offset(game.food.x * cellWidth + inset, game.food.y * cellHeight + inset),
+                size = Size(cellWidth - inset * 2, cellHeight - inset * 2),
+            )
+            drawRect(
+                color = headColor,
+                topLeft = Offset(
+                    game.food.x * cellWidth + cellWidth * 0.52f,
+                    game.food.y * cellHeight,
+                ),
+                size = Size(cellWidth * 0.18f, cellHeight * 0.24f),
+            )
         }
     }
 }
@@ -505,15 +662,21 @@ private fun MessagesScreen(
 }
 
 @Composable
-private fun DialpadKeys(extension: String, onExtensionChange: (String) -> Unit) {
+private fun DialpadKeys(
+    extension: String,
+    keySize: Dp = 64.dp,
+    gap: Dp = 12.dp,
+    onExtensionChange: (String) -> Unit,
+) {
     listOf("123", "456", "789", "<0#").forEach { row ->
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy(gap, Alignment.CenterHorizontally),
         ) {
             row.forEach { digit ->
                 PixelIconButton(
                     text = digit.toString(),
+                    size = keySize,
                     onClick = {
                         if (digit == '<') {
                             onExtensionChange(extension.dropLast(1))

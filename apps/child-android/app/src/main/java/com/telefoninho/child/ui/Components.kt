@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.telefoninho.child.data.CallStatus
 import com.telefoninho.child.data.ContactInfo
@@ -62,7 +63,11 @@ fun PixelTitle(text: String) {
 
 @Composable
 fun PixelButton(
-    text: String, enabled: Boolean = true, danger: Boolean = false, onClick: () -> Unit,
+    text: String,
+    enabled: Boolean = true,
+    danger: Boolean = false,
+    height: Dp = 72.dp,
+    onClick: () -> Unit,
 ) {
     val bg = when {
         !enabled -> Color(0xFF9DAA96)
@@ -70,7 +75,7 @@ fun PixelButton(
         else -> PixelTheme.accent
     }
     Box(
-        modifier = Modifier.fillMaxWidth().height(72.dp)
+        modifier = Modifier.fillMaxWidth().height(height)
             .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
             .background(bg)
             .clickable(enabled = enabled, onClick = onClick)
@@ -90,6 +95,7 @@ fun PixelIconButton(
     text: String,
     enabled: Boolean = true,
     danger: Boolean = false,
+    size: Dp = 64.dp,
     onClick: () -> Unit,
 ) {
     val bg = when {
@@ -98,7 +104,7 @@ fun PixelIconButton(
         else -> PixelTheme.accent
     }
     Box(
-        modifier = Modifier.size(64.dp)
+        modifier = Modifier.size(size)
             .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
             .background(bg)
             .clickable(enabled = enabled, onClick = onClick),
@@ -162,9 +168,12 @@ fun PixelTrashButton(
 }
 
 @Composable
-fun PixelCard(content: @Composable ColumnScope.() -> Unit) {
+fun PixelCard(
+    contentPadding: Dp = 16.dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
-        modifier = Modifier.fillMaxWidth().pixelSurface().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().pixelSurface().padding(contentPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         content = content,
     )
@@ -324,16 +333,21 @@ fun TelefoninhoFrame(
         contentAlignment = Alignment.Center,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxSize()
                 .shadow(0.dp)
                 .border(5.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
                 .background(PixelTheme.panel)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            content()
-            Spacer(modifier = Modifier.height(18.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                content = content,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             StatusBar8Bit(status = status, statusKind = statusKind)
         }
     }

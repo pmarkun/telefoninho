@@ -15,6 +15,7 @@ import com.telefoninho.child.data.Screen
 import com.telefoninho.child.data.ShortMessage
 import com.telefoninho.child.data.SipCredentials
 import com.telefoninho.child.data.UiState
+import com.telefoninho.child.game.isSnakeExtension
 import com.telefoninho.child.special.JokeSpecialService
 import com.telefoninho.child.special.SpecialDialService
 import com.telefoninho.child.special.SpecialDialServiceRegistry
@@ -321,6 +322,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             _error.value = "Digite um ramal"
             return
         }
+        if (isSnakeExtension(normalizedExtension)) {
+            _error.value = null
+            _screen.value = Screen.Snake
+            return
+        }
         val specialService = specialDialServices.find(normalizedExtension)
         if (specialService != null) {
             startSpecialDialService(specialService)
@@ -337,6 +343,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             ),
         )
         VoipSession.call(normalizedExtension)
+    }
+
+    fun closeSnake() {
+        _screen.value = Screen.Home
     }
 
     private fun startSpecialDialService(service: SpecialDialService) {

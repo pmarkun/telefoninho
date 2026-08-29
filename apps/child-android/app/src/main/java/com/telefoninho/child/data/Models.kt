@@ -69,6 +69,7 @@ sealed interface Screen {
     data object Settings : Screen
     data object Contacts : Screen
     data object Messages : Screen
+    data object Snake : Screen
     data object MyQr : Screen
     data object ScanQr : Screen
     data class Calling(val contact: ContactInfo) : Screen
