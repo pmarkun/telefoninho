@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacidade | Telefoninho</title>
+    <meta name="description" content="Politica de privacidade do aplicativo Telefoninho." />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f1df;
+        --paper: #fffdf6;
+        --ink: #25251f;
+        --muted: #68665e;
+        --line: #d7cfb8;
+        --accent: #2f7d54;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+        line-height: 1.65;
+      }
+
+      main {
+        width: min(100% - 2rem, 760px);
+        margin: 2rem auto;
+        padding: clamp(1.25rem, 4vw, 3rem);
+        border: 3px solid var(--ink);
+        background: var(--paper);
+        box-shadow: 8px 8px 0 var(--accent);
+      }
+
+      h1, h2 { line-height: 1.2; }
+      h1 { margin-top: 0; font-size: clamp(2rem, 8vw, 3.5rem); }
+      h2 { margin-top: 2rem; font-size: 1.25rem; }
+      p, li { color: var(--muted); }
+      a { color: var(--accent); font-weight: 700; }
+      .updated { font-size: 0.9rem; }
+      .back { display: inline-block; margin-bottom: 1.5rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back" href="/">← Telefoninho</a>
+      <h1>Privacidade</h1>
+      <p class="updated">Última atualização: 29 de agosto de 2026.</p>
+      <p>O Telefoninho é um aplicativo de comunicação infantil configurado e controlado por responsáveis. Esta política descreve os dados usados pelo aplicativo Android e pelos serviços necessários para seu funcionamento.</p>
+
+      <h2>Dados usados pelo serviço</h2>
+      <p>O Telefoninho pode tratar:</p>
+      <ul>
+        <li>nome de exibição e identificador do perfil infantil;</li>
+        <li>nomes e identificadores dos contatos autorizados pelo responsável;</li>
+        <li>modelo e identificador técnico do dispositivo, usados no pareamento;</li>
+        <li>código de pareamento, token de autenticação e credenciais técnicas de telefonia;</li>
+        <li>dados técnicos de chamadas, como ramais envolvidos, horário, duração, estado e endereços de rede;</li>
+        <li>áudio transmitido durante chamadas de voz.</li>
+      </ul>
+      <p>Esses dados são usados para parear o aparelho, mostrar contatos autorizados, autenticar o dispositivo, estabelecer chamadas e proteger o acesso ao serviço. O app não usa esses dados para publicidade nem vende dados pessoais.</p>
+
+      <h2>Microfone e câmera</h2>
+      <p>O microfone é usado somente para chamadas de voz. O Telefoninho não grava nem transcreve as conversas.</p>
+      <p>A câmera é usada, mediante ação e permissão do usuário, para ler convites por QR code. As imagens da câmera são processadas no aparelho e não são armazenadas nem enviadas pelo Telefoninho.</p>
+
+      <h2>Localização e previsão do tempo</h2>
+      <p>O app não solicita nem coleta a localização do aparelho. O recurso de previsão usa uma localização fixa de São Paulo e consulta a API Open-Meteo. Essa consulta pode expor ao provedor informações técnicas normais de uma conexão de internet, como o endereço IP.</p>
+
+      <h2>Armazenamento, compartilhamento e segurança</h2>
+      <p>Configurações de pareamento, contatos e credenciais técnicas ficam armazenados localmente no aparelho. Dados necessários para pareamento, sincronização e chamadas são transmitidos aos servidores do Telefoninho e aos provedores técnicos envolvidos na entrega desses recursos.</p>
+      <p>O tráfego HTTP do aplicativo usa HTTPS. Chamadas de voz usam a infraestrutura SIP configurada para o serviço. Mantemos os dados somente pelo tempo necessário para operar, proteger e diagnosticar o serviço, observadas obrigações legais aplicáveis.</p>
+
+      <h2>Crianças e controle dos responsáveis</h2>
+      <p>O aplicativo é destinado ao uso infantil sob configuração e supervisão de um responsável. A criança só pode se comunicar com contatos previamente autorizados. O responsável pode remover o pareamento e solicitar correção ou exclusão dos dados associados.</p>
+
+      <h2>Publicidade e analytics</h2>
+      <p>O Telefoninho não exibe anúncios e não inclui SDK de analytics de terceiros nesta versão.</p>
+
+      <h2>Contato</h2>
+      <p>Para dúvidas de privacidade ou solicitações sobre dados, escreva para <a href="mailto:pedro@markun.com.br">pedro@markun.com.br</a>.</p>
+    </main>
+  </body>
+</html>
