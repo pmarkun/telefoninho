@@ -119,6 +119,15 @@ export const callLogs = sqliteTable("call_log", {
   blockReason: text("block_reason"),
 });
 
+export const shortMessages = sqliteTable("short_message", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull().references(() => families.id),
+  fromMemberId: text("from_member_id").notNull().references(() => familyMembers.id),
+  toMemberId: text("to_member_id").notNull().references(() => familyMembers.id),
+  body: text("body").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 export const asteriskConfigState = sqliteTable("asterisk_config_state", {
   id: text("id").primaryKey(),
   pending: integer("pending", { mode: "boolean" }).notNull().default(false),

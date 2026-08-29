@@ -30,6 +30,16 @@ export type ContactInfo = {
   enabled: boolean;
 };
 
+export type ShortMessage = {
+  id: string;
+  fromMemberId: string;
+  fromDisplayName: string;
+  toMemberId: string;
+  toDisplayName: string;
+  body: string;
+  createdAt: string;
+};
+
 export type ChildProfile = {
   memberId: string;
   displayName: string;

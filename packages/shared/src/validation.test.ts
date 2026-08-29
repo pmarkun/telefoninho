@@ -8,6 +8,7 @@ import {
   contactInviteQrPayloadSchema,
   pairingCodeSchema,
   resolveContactRequestSchema,
+  createShortMessageSchema,
 } from "./validation";
 
 describe("loginSchema", () => {
@@ -19,6 +20,21 @@ describe("loginSchema", () => {
   it("should reject invalid email", () => {
     const result = loginSchema.safeParse({ email: "not-an-email", password: "pass" });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("createShortMessageSchema", () => {
+  it("accepts a short message and trims it", () => {
+    const result = createShortMessageSchema.parse({
+      toMemberId: "member_2",
+      body: "  Oi!  ",
+    });
+    expect(result.body).toBe("Oi!");
+  });
+
+  it("rejects empty and overlong messages", () => {
+    expect(createShortMessageSchema.safeParse({ toMemberId: "member_2", body: "  " }).success).toBe(false);
+    expect(createShortMessageSchema.safeParse({ toMemberId: "member_2", body: "x".repeat(161) }).success).toBe(false);
   });
 });
 

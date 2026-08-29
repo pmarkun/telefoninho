@@ -51,6 +51,11 @@ export const allowedCallSchema = z.object({
   enabled: z.boolean().optional().default(true),
 });
 
+export const createShortMessageSchema = z.object({
+  toMemberId: z.string().min(1),
+  body: z.string().trim().min(1).max(160),
+});
+
 export const updateAllowedCallSchema = z.object({
   enabled: z.boolean(),
 });

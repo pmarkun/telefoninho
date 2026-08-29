@@ -9,6 +9,7 @@ import { registerChildRoutes } from "./routes/child.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 import { registerFamilyRoutes } from "./routes/families.js";
 import { registerContactInviteRoutes } from "./routes/contact-invites.js";
+import { registerMessageRoutes } from "./routes/messages.js";
 
 const server = fastify({ logger: true });
 
@@ -22,6 +23,7 @@ registerAllowedCallRoutes(server);
 registerPairingRoutes(server);
 registerContactInviteRoutes(server);
 registerChildRoutes(server);
+registerMessageRoutes(server);
 registerAdminRoutes(server);
 
 const port = Number(process.env.PORT ?? "3001");
