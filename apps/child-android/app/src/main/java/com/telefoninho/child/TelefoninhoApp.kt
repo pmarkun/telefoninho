@@ -474,7 +474,7 @@ private fun SnakeBoard(game: SnakeGameState, compact: Boolean) {
     val headColor = PixelTheme.fg
     val foodColor = ComposeColor(0xFFC93F3F)
     Box(
-        modifier = Modifier.fillMaxWidth(if (compact) 0.82f else 0.92f)
+        modifier = Modifier.fillMaxWidth(if (compact) 0.68f else 0.92f)
             .aspectRatio(1f)
             .border(4.dp, PixelTheme.fg)
             .background(PixelTheme.surface)
