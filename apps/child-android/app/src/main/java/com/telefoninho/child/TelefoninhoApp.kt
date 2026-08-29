@@ -93,6 +93,7 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
     val speakerMode by viewModel.speakerMode.collectAsState()
     val ringtone by viewModel.ringtone.collectAsState()
     val theme by viewModel.theme.collectAsState()
+    val alwaysOn by viewModel.alwaysOn.collectAsState()
     var showServerSettings by remember { mutableStateOf(false) }
 
     LaunchedEffect(theme) {
@@ -164,11 +165,14 @@ fun TelefoninhoApp(viewModel: AppViewModel = viewModel()) {
                             speakerMode = speakerMode,
                             ringtone = ringtone,
                             theme = theme,
+                            alwaysOn = alwaysOn,
                             error = error,
                             onOpenServerSettings = { showServerSettings = true },
                             onToggleSpeaker = { viewModel.setSpeakerMode(it) },
                             onRingtoneChange = { viewModel.setRingtone(it) },
                             onThemeChange = { viewModel.setTheme(it) },
+                            onToggleAlwaysOn = { viewModel.setAlwaysOn(it) },
+                            onRequestBatteryAccess = { viewModel.requestBatteryOptimizationExemption() },
                             onBack = { viewModel.closeSettings() },
                         )
 
@@ -359,11 +363,14 @@ private fun SettingsScreen(
     speakerMode: Boolean,
     ringtone: String,
     theme: String,
+    alwaysOn: Boolean,
     error: String?,
     onOpenServerSettings: () -> Unit,
     onToggleSpeaker: (Boolean) -> Unit,
     onRingtoneChange: (String) -> Unit,
     onThemeChange: (String) -> Unit,
+    onToggleAlwaysOn: (Boolean) -> Unit,
+    onRequestBatteryAccess: () -> Unit,
     onBack: () -> Unit,
 ) {
     var previewingRingtone by remember { mutableStateOf(false) }
@@ -402,6 +409,15 @@ private fun SettingsScreen(
             Spacer(modifier = Modifier.height(12.dp))
         }
         PixelButton(text = "SERVIDOR", onClick = onOpenServerSettings)
+        Spacer(modifier = Modifier.height(12.dp))
+        PixelButton(
+            text = if (alwaysOn) "SEMPRE LIGADO: SIM" else "SEMPRE LIGADO: NAO",
+            onClick = { onToggleAlwaysOn(!alwaysOn) },
+        )
+        if (alwaysOn) {
+            Spacer(modifier = Modifier.height(12.dp))
+            PixelButton(text = "LIBERAR BATERIA", onClick = onRequestBatteryAccess)
+        }
         Spacer(modifier = Modifier.height(12.dp))
         PixelButton(
             text = if (speakerMode) "ÁUDIO: SPEAKER" else "ÁUDIO: FONE",

@@ -1,6 +1,10 @@
 package com.telefoninho.child.viewmodel
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.telefoninho.child.data.ApiClient
@@ -70,6 +74,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _theme = MutableStateFlow("bulbassauro")
     val theme: StateFlow<String> = _theme.asStateFlow()
 
+    private val _alwaysOn = MutableStateFlow(true)
+    val alwaysOn: StateFlow<Boolean> = _alwaysOn.asStateFlow()
+
     private var sipCredentials: SipCredentials? = null
     private var activeSpecialService: SpecialDialService? = null
 
@@ -124,6 +131,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         observeSpeakerMode()
         observeRingtone()
         observeTheme()
+        observeAlwaysOn()
         checkPaired()
     }
 
@@ -154,6 +162,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun observeAlwaysOn() {
+        viewModelScope.launch {
+            configStore.alwaysOn.collect { _alwaysOn.value = it }
+        }
+    }
+
     private fun checkPaired() {
         viewModelScope.launch {
             val isPaired = configStore.isPaired.first()
@@ -165,7 +179,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     _screen.value = Screen.Home
                     _sipStatus.value = "SIP conectando"
                     VoipSession.start(getApplication(), config.sip)
-                    VoipForegroundService.start(getApplication())
+                    if (configStore.alwaysOn.first()) {
+                        VoipForegroundService.start(getApplication())
+                    }
                 } else {
                     _uiState.value = UiState.Pairing
                 }
@@ -399,6 +415,29 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             configStore.saveTheme(value)
         }
+    }
+
+    fun setAlwaysOn(enabled: Boolean) {
+        viewModelScope.launch {
+            configStore.saveAlwaysOn(enabled)
+            if (enabled) {
+                VoipForegroundService.start(getApplication())
+                requestBatteryOptimizationExemption()
+            } else {
+                VoipForegroundService.stop(getApplication())
+            }
+        }
+    }
+
+    fun requestBatteryOptimizationExemption() {
+        val application = getApplication<Application>()
+        val powerManager = application.getSystemService(PowerManager::class.java)
+        if (powerManager.isIgnoringBatteryOptimizations(application.packageName)) return
+        val intent = Intent(
+            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            Uri.parse("package:${application.packageName}"),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        application.startActivity(intent)
     }
 
     fun acceptCall() {

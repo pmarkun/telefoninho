@@ -70,6 +70,13 @@ class VoipManager(private val context: Context) {
         }
     }
 
+    fun refreshAudioRoute() {
+        executor.execute {
+            val c = core ?: return@execute
+            enableAudio(c, activeCall ?: c.currentCall)
+        }
+    }
+
     fun call(extension: String) {
         executor.execute {
             try {

@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.RingtoneManager
 import android.media.ToneGenerator
@@ -29,6 +30,9 @@ class VoipForegroundService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var configStore: ConfigStore
     private var ringtoneJob: Job? = null
+    private var ringtoneAudioFocus: AudioFocusRequest? = null
+    private var previousAudioMode: Int? = null
+    private var previousSpeakerphoneOn: Boolean? = null
 
     private val listener = object : VoipListener {
         override fun onRegistered() {
@@ -50,6 +54,7 @@ class VoipForegroundService : Service() {
 
         override fun onCallConnected() {
             stopRingtone()
+            VoipSession.refreshAudioRoute()
             notificationManager().cancel(INCOMING_NOTIFICATION_ID)
             showServiceNotification("Chamada em andamento")
         }
@@ -173,6 +178,7 @@ class VoipForegroundService : Service() {
 
     private fun startRingtone() {
         ringtoneJob?.cancel()
+        routeRingtoneToSpeaker()
         ringtoneJob = scope.launch {
             val option = configStore.ringtone.first()
             val toneGenerator = ToneGenerator(AudioManager.STREAM_RING, 100)
@@ -191,6 +197,43 @@ class VoipForegroundService : Service() {
     private fun stopRingtone() {
         ringtoneJob?.cancel()
         ringtoneJob = null
+        restoreAudioRoute()
+    }
+
+    private fun routeRingtoneToSpeaker() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (previousAudioMode == null) previousAudioMode = audioManager.mode
+        if (previousSpeakerphoneOn == null) {
+            @Suppress("DEPRECATION")
+            previousSpeakerphoneOn = audioManager.isSpeakerphoneOn
+        }
+
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        ringtoneAudioFocus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            .setAudioAttributes(attributes)
+            .setOnAudioFocusChangeListener { }
+            .build()
+            .also { audioManager.requestAudioFocus(it) }
+
+        audioManager.mode = AudioManager.MODE_RINGTONE
+        @Suppress("DEPRECATION")
+        audioManager.isSpeakerphoneOn = true
+    }
+
+    private fun restoreAudioRoute() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        ringtoneAudioFocus?.let(audioManager::abandonAudioFocusRequest)
+        ringtoneAudioFocus = null
+        previousAudioMode?.let { audioManager.mode = it }
+        previousAudioMode = null
+        previousSpeakerphoneOn?.let {
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = it
+        }
+        previousSpeakerphoneOn = null
     }
 
     private suspend fun playRingtonePattern(toneGenerator: ToneGenerator, option: String) {

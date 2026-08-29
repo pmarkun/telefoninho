@@ -71,6 +71,10 @@ object VoipSession {
         manager?.setSpeakerMode(enabled)
     }
 
+    fun refreshAudioRoute() {
+        manager?.refreshAudioRoute()
+    }
+
     fun call(extension: String) {
         manager?.call(extension)
     }
@@ -93,4 +97,3 @@ object VoipSession {
     private fun SipCredentials.key(): String =
         listOf(domain, port.toString(), transport, username, extension, password).joinToString("|")
 }
-

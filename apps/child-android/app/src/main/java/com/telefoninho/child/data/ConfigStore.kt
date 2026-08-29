@@ -21,6 +21,7 @@ private const val KEY_API_BASE_URL = "api_base_url"
 private const val KEY_SPEAKER_MODE = "speaker_mode"
 private const val KEY_RINGTONE = "ringtone"
 private const val KEY_THEME = "theme"
+private const val KEY_ALWAYS_ON = "always_on"
 
 class ConfigStore(private val context: Context) {
 
@@ -42,6 +43,10 @@ class ConfigStore(private val context: Context) {
 
     val theme: Flow<String> = context.store.data.map { prefs ->
         prefs[stringPreferencesKey(KEY_THEME)] ?: "bulbassauro"
+    }
+
+    val alwaysOn: Flow<Boolean> = context.store.data.map { prefs ->
+        prefs[stringPreferencesKey(KEY_ALWAYS_ON)]?.toBoolean() ?: true
     }
 
     suspend fun saveConfig(config: AppConfig) {
@@ -87,6 +92,12 @@ class ConfigStore(private val context: Context) {
     suspend fun saveTheme(value: String) {
         context.store.edit { prefs ->
             prefs[stringPreferencesKey(KEY_THEME)] = value
+        }
+    }
+
+    suspend fun saveAlwaysOn(value: Boolean) {
+        context.store.edit { prefs ->
+            prefs[stringPreferencesKey(KEY_ALWAYS_ON)] = value.toString()
         }
     }
 
