@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,9 +33,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -108,6 +114,50 @@ fun PixelIconButton(
             maxLines = 1,
             overflow = TextOverflow.Clip,
         )
+    }
+}
+
+@Composable
+fun PixelTrashButton(
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val bg = if (enabled) Color(0xFFC93F3F) else Color(0xFF9DAA96)
+    Box(
+        modifier = Modifier.size(44.dp)
+            .border(3.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
+            .background(bg)
+            .clickable(enabled = enabled, onClick = onClick)
+            .semantics { contentDescription = "Excluir mensagem" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.size(22.dp)) {
+            val stroke = 3.dp.toPx()
+            drawRect(
+                color = Color.White,
+                topLeft = Offset(size.width * 0.24f, size.height * 0.30f),
+                size = Size(size.width * 0.52f, size.height * 0.58f),
+                style = Stroke(width = stroke),
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(size.width * 0.14f, size.height * 0.20f),
+                end = Offset(size.width * 0.86f, size.height * 0.20f),
+                strokeWidth = stroke,
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(size.width * 0.38f, size.height * 0.08f),
+                end = Offset(size.width * 0.62f, size.height * 0.08f),
+                strokeWidth = stroke,
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(size.width * 0.50f, size.height * 0.42f),
+                end = Offset(size.width * 0.50f, size.height * 0.76f),
+                strokeWidth = stroke,
+            )
+        }
     }
 }
 

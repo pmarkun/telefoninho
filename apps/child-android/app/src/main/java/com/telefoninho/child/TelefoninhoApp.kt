@@ -10,8 +10,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -75,7 +78,9 @@ import com.telefoninho.child.ui.PixelIconButton
 import com.telefoninho.child.ui.PixelTextInput
 import com.telefoninho.child.ui.PixelTheme
 import com.telefoninho.child.ui.PixelTitle
+import com.telefoninho.child.ui.PixelTrashButton
 import com.telefoninho.child.ui.TelefoninhoFrame
+import com.telefoninho.child.ui.relativeTime
 import com.telefoninho.child.viewmodel.AppViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -450,14 +455,25 @@ private fun MessagesScreen(
             )
         }
         messages.forEach { message ->
-            PixelCard {
-                val sentByMe = message.fromMemberId == currentMemberId
+            val sentByMe = message.fromMemberId == currentMemberId
+            val cardBackground = if (sentByMe) PixelTheme.panel else PixelTheme.surface
+            val cardBorder = if (sentByMe) PixelTheme.fg else PixelTheme.accent
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = if (sentByMe) 28.dp else 0.dp, end = if (sentByMe) 0.dp else 28.dp)
+                    .border(4.dp, cardBorder)
+                    .background(cardBackground)
+                    .padding(14.dp),
+                horizontalAlignment = if (sentByMe) Alignment.End else Alignment.Start,
+            ) {
                 Text(
-                    text = if (sentByMe) "PARA ${message.toDisplayName.uppercase()}" else "DE ${message.fromDisplayName.uppercase()}",
-                    color = PixelTheme.fg,
+                    text = if (sentByMe) "ENVIADA  ›  PARA ${message.toDisplayName.uppercase()}" else "RECEBIDA  ‹  DE ${message.fromDisplayName.uppercase()}",
+                    color = if (sentByMe) PixelTheme.fg else PixelTheme.accent,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.fillMaxWidth(),
+                    textAlign = if (sentByMe) TextAlign.End else TextAlign.Start,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -474,12 +490,12 @@ private fun MessagesScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = message.createdAt.replace('T', ' ').take(16),
+                        text = relativeTime(message.createdAt),
                         color = PixelTheme.fg.copy(alpha = 0.65f),
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                     )
-                    PixelIconButton(text = "X", danger = true, onClick = { onDelete(message.id) })
+                    PixelTrashButton(onClick = { onDelete(message.id) })
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
