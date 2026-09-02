@@ -3,8 +3,16 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useNotify } from "../notify-context";
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+import {
+  API,
+  chooseActiveFamily,
+  Family,
+  getSession,
+  loadFamilies,
+  NavBar,
+  ParentRole,
+  setActiveFamilyId,
+} from "../session";
 
 interface Member {
   id: string;
@@ -20,23 +28,37 @@ interface Rule {
   enabled: boolean;
 }
 
+interface ExternalContact {
+  ruleId: string;
+  fromDisplayName: string;
+  displayName: string;
+  kind: "external";
+  active: boolean;
+  sipExtension: string | null;
+  enabled: boolean;
+}
+
 export default function PermissionsPage() {
   const router = useRouter();
   const { notify } = useNotify();
   const [parentName, setParentName] = useState("");
+  const [parentRole, setParentRole] = useState<ParentRole>("responsible");
+  const [families, setFamilies] = useState<Family[]>([]);
+  const [activeFamily, setActiveFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
+  const [externalContacts, setExternalContacts] = useState<ExternalContact[]>([]);
   const [saving, setSaving] = useState(false);
 
   const tokenRef = useRef("");
 
   useEffect(() => {
-    const t = localStorage.getItem("token");
-    const pn = localStorage.getItem("parentName");
-    if (!t) { router.push("/login"); return; }
-    tokenRef.current = t;
-    setParentName(pn || "");
-    loadPermissions(t, setMembers, setRules, notify);
+    const session = getSession();
+    if (!session) { router.push("/login"); return; }
+    tokenRef.current = session.token;
+    setParentName(session.parentName);
+    setParentRole(session.parentRole);
+    loadPermissions(session.token, setMembers, setRules, setExternalContacts, notify, setFamilies, setActiveFamily);
   }, [router, notify]);
 
   const getRule = useCallback(
@@ -77,7 +99,12 @@ export default function PermissionsPage() {
         }
         return [...prev, saved];
       });
-      notify(newEnabled ? "Permissão ativada" : "Permissão desativada", "success");
+      notify(
+        newEnabled
+          ? "Permissão ativada. Config VoIP pendente."
+          : "Permissão desativada. Config VoIP pendente.",
+        "success",
+      );
     } catch {
       notify("Erro de conexão ao salvar permissão", "error");
     } finally {
@@ -85,22 +112,54 @@ export default function PermissionsPage() {
     }
   }
 
+  async function toggleExternal(contact: ExternalContact) {
+    setSaving(true);
+    const enabled = !contact.enabled;
+    try {
+      const res = await fetch(`${API}/allowed-calls/${contact.ruleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenRef.current}` },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Erro ao salvar" }));
+        notify(err.error || "Erro ao salvar contato externo", "error");
+        return;
+      }
+      setExternalContacts((prev) => prev.map((item) => (
+        item.ruleId === contact.ruleId ? { ...item, enabled } : item
+      )));
+      notify(
+        enabled
+          ? "Contato externo ativado. Config VoIP pendente."
+          : "Contato externo desativado. Config VoIP pendente.",
+        "success",
+      );
+    } catch {
+      notify("Erro de conexão ao salvar contato externo", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function changeFamily(familyId: string) {
+    setActiveFamilyId(familyId);
+    loadPermissions(tokenRef.current, setMembers, setRules, setExternalContacts, notify, setFamilies, setActiveFamily, familyId);
+  }
+
   return (
     <div>
-      <nav className="nav">
-        <a href="/dashboard" className="brand">Telefoninho</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/members">Membros</a>
-        <a href="/permissions">Permissões</a>
-        <a href="/call-logs">Chamadas</a>
-        <span className="spacer" />
-        <span className="user">{parentName}</span>
-        <a href="/login" onClick={(e) => { e.preventDefault(); localStorage.clear(); router.push("/login"); }}>Sair</a>
-      </nav>
+      <NavBar
+        parentName={parentName}
+        parentRole={parentRole}
+        families={families}
+        activeFamilyId={activeFamily?.id || ""}
+        onFamilyChange={changeFamily}
+      />
       <div className="container">
         <h1>Matriz de Permissões</h1>
         <p style={{ color: "var(--text-muted)", marginBottom: "1rem" }}>
-          Marque quais membros podem ligar uns para os outros.
+          Marque quais membros podem ligar uns para os outros. Depois regenere a Config VoIP no Dashboard.
         </p>
         {members.length === 0 ? (
           <p style={{ color: "var(--text-muted)" }}>Nenhum membro encontrado.</p>
@@ -154,6 +213,36 @@ export default function PermissionsPage() {
             </table>
           </div>
         )}
+        {externalContacts.length > 0 && (
+          <div className="card" style={{ marginTop: "1rem" }}>
+            <h2>Contatos externos</h2>
+            <table>
+              <thead>
+                <tr><th>De</th><th>Contato</th><th>Tipo</th><th>Ramal</th><th>Status</th><th>Ações</th></tr>
+              </thead>
+              <tbody>
+                {externalContacts.map((contact) => (
+                  <tr key={contact.ruleId}>
+                    <td>{contact.fromDisplayName}</td>
+                    <td><strong>{contact.displayName}</strong></td>
+                    <td>Externo</td>
+                    <td>{contact.sipExtension || "—"}</td>
+                    <td>
+                      <span className={`badge ${contact.enabled && contact.active ? "active" : "inactive"}`}>
+                        {contact.enabled && contact.active ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                    <td>
+                      <button disabled={saving || !contact.active} onClick={() => toggleExternal(contact)}>
+                        {contact.enabled ? "Desativar" : "Ativar"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {saving && <p style={{ color: "var(--text-muted)" }}>Salvando...</p>}
       </div>
     </div>
@@ -164,16 +253,23 @@ async function loadPermissions(
   token: string,
   setMembers: (v: Member[]) => void,
   setRules: (v: Rule[]) => void,
+  setExternalContacts: (v: ExternalContact[]) => void,
   notify: (msg: string, type?: "success" | "error" | "info") => void,
+  setFamilies: (v: Family[]) => void,
+  setActiveFamily: (v: Family | null) => void,
+  selectedFamilyId?: string,
 ) {
   try {
-    const familiesRes = await fetch(`${API}/families`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!familiesRes.ok) { notify("Erro ao carregar famílias", "error"); return; }
-    const families: { id: string }[] = await familiesRes.json();
+    const families = await loadFamilies(token);
+    setFamilies(families);
     if (families.length === 0) { notify("Nenhuma família encontrada", "error"); return; }
-    const fid = families[0].id;
+    const family = selectedFamilyId
+      ? families.find((item) => item.id === selectedFamilyId) || families[0]
+      : chooseActiveFamily(families);
+    setActiveFamily(family);
+    if (!family) return;
+    setActiveFamilyId(family.id);
+    const fid = family.id;
 
     const permRes = await fetch(`${API}/families/${fid}/permissions`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -182,6 +278,7 @@ async function loadPermissions(
     const data = await permRes.json();
     setMembers(data.members || []);
     setRules(data.rules || []);
+    setExternalContacts(data.externalContacts || []);
   } catch {
     notify("Erro de conexão ao carregar permissões", "error");
   }

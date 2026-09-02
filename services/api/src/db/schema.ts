@@ -1,10 +1,12 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const parentUsers = sqliteTable("parent_user", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull(),
+  role: text("role").notNull().default("responsible"),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
@@ -12,9 +14,20 @@ export const parentUsers = sqliteTable("parent_user", {
 export const families = sqliteTable("family", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+export const familyResponsibles = sqliteTable("family_responsible", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull().references(() => families.id),
+  parentUserId: text("parent_user_id").notNull().references(() => parentUsers.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+}, (table) => ({
+  familyUserUnique: uniqueIndex("family_responsible_family_user_unique").on(table.familyId, table.parentUserId),
+}));
 
 export const familyMembers = sqliteTable("family_member", {
   id: text("id").primaryKey(),
@@ -70,6 +83,28 @@ export const pairingCodes = sqliteTable("pairing_code", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+export const contactInvites = sqliteTable("contact_invite", {
+  id: text("id").primaryKey(),
+  targetMemberId: text("target_member_id").notNull().references(() => familyMembers.id),
+  token: text("token").notNull().unique(),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  revokedAt: integer("revoked_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export const contactRequests = sqliteTable("contact_request", {
+  id: text("id").primaryKey(),
+  inviteId: text("invite_id").notNull().references(() => contactInvites.id),
+  familyId: text("family_id").notNull().references(() => families.id),
+  requesterMemberId: text("requester_member_id").notNull().references(() => familyMembers.id),
+  targetMemberId: text("target_member_id").notNull().references(() => familyMembers.id),
+  status: text("status").notNull().default("pending"),
+  resolvedByParentId: text("resolved_by_parent_id").references(() => parentUsers.id),
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
 export const callLogs = sqliteTable("call_log", {
   id: text("id").primaryKey(),
   familyId: text("family_id").notNull().references(() => families.id),
@@ -82,4 +117,22 @@ export const callLogs = sqliteTable("call_log", {
   durationSeconds: integer("duration_seconds"),
   status: text("status").notNull().default("missed"),
   blockReason: text("block_reason"),
+});
+
+export const shortMessages = sqliteTable("short_message", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull().references(() => families.id),
+  fromMemberId: text("from_member_id").notNull().references(() => familyMembers.id),
+  toMemberId: text("to_member_id").notNull().references(() => familyMembers.id),
+  body: text("body").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export const asteriskConfigState = sqliteTable("asterisk_config_state", {
+  id: text("id").primaryKey(),
+  pending: integer("pending", { mode: "boolean" }).notNull().default(false),
+  lastGeneratedAt: integer("last_generated_at", { mode: "timestamp" }),
+  lastAppliedAt: integer("last_applied_at", { mode: "timestamp" }),
+  lastError: text("last_error"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });

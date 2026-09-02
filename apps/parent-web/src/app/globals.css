@@ -37,6 +37,7 @@ button:hover { background: var(--accent-light); }
 button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 button.primary:hover { opacity: 0.9; }
 button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 input, select {
   font-family: inherit;
@@ -74,6 +75,11 @@ th { font-weight: 600; }
 .nav .brand { font-weight: 700; font-size: 1.1rem; }
 .nav .spacer { flex: 1; }
 .nav .user { color: #aaa; font-size: 0.9rem; }
+.nav .family-switcher {
+  max-width: 220px;
+  padding: 0.35rem 0.5rem;
+  border-color: #555;
+}
 
 .form-group { margin-bottom: 1rem; }
 .form-group label { display: block; font-weight: 500; margin-bottom: 0.25rem; }
@@ -81,6 +87,7 @@ th { font-weight: 600; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+.button-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 
 .badge {
   display: inline-block;
@@ -93,6 +100,17 @@ th { font-weight: 600; }
 .badge.inactive { background: #fce4e4; color: var(--danger); }
 
 .status-ok { color: var(--accent); font-weight: 500; }
+
+.qr-panel { margin-top: 1rem; text-align: center; }
+.qr-panel img { width: min(320px, 100%); image-rendering: pixelated; }
+.qr-panel p { color: var(--text-muted); }
+.qr-video {
+  width: 100%;
+  min-height: 260px;
+  margin-bottom: 1rem;
+  border: 2px solid var(--border);
+  background: #111;
+}
 
 .toast-container {
   position: fixed;

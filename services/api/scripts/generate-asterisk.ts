@@ -1,13 +1,13 @@
-import { execSync } from "node:child_process";
-import { resolve } from "node:path";
-
-const infraScript = resolve(import.meta.dirname, "../../../infra/asterisk/scripts/generate-asterisk-config.ts");
+import { generateAsteriskConfig } from "../src/asterisk-config.js";
 
 try {
-  execSync(`npx tsx ${infraScript}`, {
-    stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || "file:./dev.db" },
+  const result = generateAsteriskConfig({
+    databaseUrl: process.env.DATABASE_URL || "file:./dev.db",
   });
-} catch {
+  console.log(`✓ Generated configs for ${result.generatedAccounts} SIP accounts`);
+  console.log(`  → ${result.pjsipPath}`);
+  console.log(`  → ${result.extensionsPath}`);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : "Failed to generate Asterisk config");
   process.exit(1);
 }

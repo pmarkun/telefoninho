@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNotify } from "./notify-context";
+import { chooseActiveFamily, Family, NavBar, ParentRole, setActiveFamilyId } from "./session";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
@@ -16,15 +17,12 @@ interface Member {
   sipExtension: string | null;
 }
 
-interface Family {
-  id: string;
-  name: string;
-}
-
 export function useApi() {
   const [token, setToken] = useState<string | null>(null);
   const [parentName, setParentName] = useState("");
+  const [parentRole, setParentRole] = useState<ParentRole>("responsible");
   const [family, setFamily] = useState<Family | null>(null);
+  const [families, setFamilies] = useState<Family[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const { notify } = useNotify();
@@ -39,6 +37,7 @@ export function useApi() {
     }
     setToken(t);
     setParentName(pn || "");
+    setParentRole(localStorage.getItem("parentRole") === "admin" ? "admin" : "responsible");
 
     fetch(`${API}/families`, {
       headers: { Authorization: `Bearer ${t}` },
@@ -46,7 +45,10 @@ export function useApi() {
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
-          setFamily(data[0]);
+          setFamilies(data);
+          const selected = chooseActiveFamily(data);
+          setFamily(selected);
+          if (selected) setActiveFamilyId(selected.id);
         }
       })
       .catch(() => notify("Erro ao carregar dados da família", "error"));
@@ -59,7 +61,7 @@ export function useApi() {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   });
 
-  return { token, parentName, family, members, setMembers, headers, API, loading };
+  return { token, parentName, parentRole, family, families, members, setMembers, headers, API, loading };
 }
 
 interface DashboardLayoutProps {
@@ -67,32 +69,22 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { parentName, loading } = useApi();
-  const router = useRouter();
+  const { parentName, parentRole, family, families, loading } = useApi();
 
   if (loading) return <div className="container">Carregando...</div>;
 
   return (
     <div>
-      <nav className="nav">
-        <a href="/dashboard" className="brand">Telefoninho</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/members">Membros</a>
-        <a href="/permissions">Permissões</a>
-        <a href="/call-logs">Chamadas</a>
-        <span className="spacer" />
-        <span className="user">{parentName}</span>
-        <a
-          href="/login"
-          onClick={(e) => {
-            e.preventDefault();
-            localStorage.clear();
-            router.push("/login");
-          }}
-        >
-          Sair
-        </a>
-      </nav>
+      <NavBar
+        parentName={parentName}
+        parentRole={parentRole}
+        families={families}
+        activeFamilyId={family?.id || ""}
+        onFamilyChange={(familyId) => {
+          setActiveFamilyId(familyId);
+          window.location.reload();
+        }}
+      />
       <div className="container">{children}</div>
     </div>
   );

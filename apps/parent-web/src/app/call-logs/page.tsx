@@ -3,8 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNotify } from "../notify-context";
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+import {
+  API,
+  chooseActiveFamily,
+  Family,
+  getSession,
+  loadFamilies,
+  NavBar,
+  ParentRole,
+  setActiveFamilyId,
+} from "../session";
 
 interface CallLog {
   id: string;
@@ -28,35 +36,61 @@ const statusLabels: Record<string, string> = {
 export default function CallLogsPage() {
   const router = useRouter();
   const { notify } = useNotify();
+  const [token, setToken] = useState("");
   const [parentName, setParentName] = useState("");
+  const [parentRole, setParentRole] = useState<ParentRole>("responsible");
+  const [families, setFamilies] = useState<Family[]>([]);
+  const [activeFamily, setActiveFamily] = useState<Family | null>(null);
   const [logs, setLogs] = useState<CallLog[]>([]);
 
   useEffect(() => {
-    const t = localStorage.getItem("token");
-    const pn = localStorage.getItem("parentName");
-    if (!t) { router.push("/login"); return; }
-    setParentName(pn || "");
-
-    fetch(`${API}/admin/call-logs`, {
-      headers: { Authorization: `Bearer ${t}` },
-    })
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then(setLogs)
-      .catch(() => notify("Erro ao carregar histórico de chamadas", "error"));
+    const session = getSession();
+    if (!session) { router.push("/login"); return; }
+    setToken(session.token);
+    setParentName(session.parentName);
+    setParentRole(session.parentRole);
+    loadLogs(session.token);
   }, [router, notify]);
+
+  async function loadLogs(t = token, selectedFamilyId?: string) {
+    if (!t) return;
+    try {
+      const familyList = await loadFamilies(t);
+      setFamilies(familyList);
+      const family = selectedFamilyId
+        ? familyList.find((item) => item.id === selectedFamilyId) || familyList[0] || null
+        : chooseActiveFamily(familyList);
+      setActiveFamily(family);
+      if (!family) {
+        setLogs([]);
+        return;
+      }
+      setActiveFamilyId(family.id);
+
+      const res = await fetch(`${API}/admin/call-logs?familyId=${family.id}`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (!res.ok) throw new Error();
+      setLogs(await res.json());
+    } catch {
+      notify("Erro ao carregar histórico de chamadas", "error");
+    }
+  }
+
+  function changeFamily(familyId: string) {
+    setActiveFamilyId(familyId);
+    loadLogs(token, familyId);
+  }
 
   return (
     <div>
-      <nav className="nav">
-        <a href="/dashboard" className="brand">Telefoninho</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/members">Membros</a>
-        <a href="/permissions">Permissões</a>
-        <a href="/call-logs">Chamadas</a>
-        <span className="spacer" />
-        <span className="user">{parentName}</span>
-        <a href="/login" onClick={(e) => { e.preventDefault(); localStorage.clear(); router.push("/login"); }}>Sair</a>
-      </nav>
+      <NavBar
+        parentName={parentName}
+        parentRole={parentRole}
+        families={families}
+        activeFamilyId={activeFamily?.id || ""}
+        onFamilyChange={changeFamily}
+      />
       <div className="container">
         <h1>Histórico de Chamadas</h1>
         {logs.length === 0 ? (

@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { eq, and } from "drizzle-orm";
 import { claimPairingSchema } from "@telefoninho/shared/validation";
 import { db, familyMembers, sipAccounts, pairingCodes, allowedCalls } from "../db/index.js";
+import { requireMemberAccess, signToken } from "../auth-context.js";
 
 function generatePairingCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -16,6 +17,7 @@ export function registerPairingRoutes(server: FastifyInstance): void {
   server.post<{ Params: { memberId: string } }>(
     "/members/:memberId/pairing-code",
     async (req, reply) => {
+      if (!requireMemberAccess(req, reply, req.params.memberId)) return reply;
       const sipAccount = db.select()
         .from(sipAccounts)
         .where(eq(sipAccounts.familyMemberId, req.params.memberId))
@@ -93,29 +95,38 @@ export function registerPairingRoutes(server: FastifyInstance): void {
     const rules = db.select({
       toMemberId: allowedCalls.toMemberId,
       enabled: allowedCalls.enabled,
+    })
+      .from(allowedCalls)
+      .where(eq(allowedCalls.fromMemberId, pairingCode.familyMemberId))
+      .all();
+    const enabledMemberIds = new Set(rules.filter((r) => r.enabled).map((r) => r.toMemberId));
+
+    const familyContacts = db.select({
+      memberId: familyMembers.id,
       displayName: familyMembers.displayName,
       avatarKey: familyMembers.avatarKey,
       colorKey: familyMembers.colorKey,
       sipExtension: sipAccounts.extension,
     })
-      .from(allowedCalls)
-      .innerJoin(familyMembers, eq(familyMembers.id, allowedCalls.toMemberId))
-      .leftJoin(sipAccounts, eq(sipAccounts.familyMemberId, allowedCalls.toMemberId))
-      .where(eq(allowedCalls.fromMemberId, pairingCode.familyMemberId))
+      .from(familyMembers)
+      .leftJoin(sipAccounts, eq(sipAccounts.familyMemberId, familyMembers.id))
+      .where(eq(familyMembers.familyId, member.familyId))
       .all();
 
-    const contacts = rules
-      .filter((r) => r.enabled && r.sipExtension)
+    const contacts = familyContacts
+      .filter((r) => r.memberId !== member.id && r.sipExtension)
       .map((r) => ({
-        memberId: r.toMemberId,
+        memberId: r.memberId,
         displayName: r.displayName,
         avatarKey: r.avatarKey,
         colorKey: r.colorKey,
         sipExtension: r.sipExtension,
+        enabled: enabledMemberIds.has(r.memberId),
         sipUri: `sip:${r.sipExtension}@${sipAccount.domain}`,
       }));
 
     return {
+      token: signToken({ sub: member.id, kind: member.kind }),
       profile: {
         memberId: member.id,
         displayName: member.displayName,

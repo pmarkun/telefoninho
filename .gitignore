@@ -22,3 +22,5 @@ apps/child-android/build
 apps/child-android/app/build
 infra/asterisk/config/pjsip.generated.conf
 infra/asterisk/config/extensions.generated.conf
+infra/asterisk/config/manager.generated.conf
+infra/asterisk/config/pjsip.transport.local.conf

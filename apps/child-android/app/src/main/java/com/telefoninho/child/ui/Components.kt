@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,16 +31,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.telefoninho.child.data.CallStatus
 import com.telefoninho.child.data.ContactInfo
@@ -55,7 +63,11 @@ fun PixelTitle(text: String) {
 
 @Composable
 fun PixelButton(
-    text: String, enabled: Boolean = true, danger: Boolean = false, onClick: () -> Unit,
+    text: String,
+    enabled: Boolean = true,
+    danger: Boolean = false,
+    height: Dp = 72.dp,
+    onClick: () -> Unit,
 ) {
     val bg = when {
         !enabled -> Color(0xFF9DAA96)
@@ -63,7 +75,7 @@ fun PixelButton(
         else -> PixelTheme.accent
     }
     Box(
-        modifier = Modifier.fillMaxWidth().height(72.dp)
+        modifier = Modifier.fillMaxWidth().height(height)
             .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
             .background(bg)
             .clickable(enabled = enabled, onClick = onClick)
@@ -79,9 +91,89 @@ fun PixelButton(
 }
 
 @Composable
-fun PixelCard(content: @Composable ColumnScope.() -> Unit) {
+fun PixelIconButton(
+    text: String,
+    enabled: Boolean = true,
+    danger: Boolean = false,
+    size: Dp = 64.dp,
+    onClick: () -> Unit,
+) {
+    val bg = when {
+        !enabled -> Color(0xFF9DAA96)
+        danger -> Color(0xFFC93F3F)
+        else -> PixelTheme.accent
+    }
+    Box(
+        modifier = Modifier.size(size)
+            .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
+            .background(bg)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+        )
+    }
+}
+
+@Composable
+fun PixelTrashButton(
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val bg = if (enabled) Color(0xFFC93F3F) else Color(0xFF9DAA96)
+    Box(
+        modifier = Modifier.size(44.dp)
+            .border(3.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
+            .background(bg)
+            .clickable(enabled = enabled, onClick = onClick)
+            .semantics { contentDescription = "Excluir mensagem" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.size(22.dp)) {
+            val stroke = 3.dp.toPx()
+            drawRect(
+                color = Color.White,
+                topLeft = Offset(size.width * 0.24f, size.height * 0.30f),
+                size = Size(size.width * 0.52f, size.height * 0.58f),
+                style = Stroke(width = stroke),
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(size.width * 0.14f, size.height * 0.20f),
+                end = Offset(size.width * 0.86f, size.height * 0.20f),
+                strokeWidth = stroke,
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(size.width * 0.38f, size.height * 0.08f),
+                end = Offset(size.width * 0.62f, size.height * 0.08f),
+                strokeWidth = stroke,
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(size.width * 0.50f, size.height * 0.42f),
+                end = Offset(size.width * 0.50f, size.height * 0.76f),
+                strokeWidth = stroke,
+            )
+        }
+    }
+}
+
+@Composable
+fun PixelCard(
+    contentPadding: Dp = 16.dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
-        modifier = Modifier.fillMaxWidth().pixelSurface().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().pixelSurface().padding(contentPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         content = content,
     )
@@ -98,7 +190,7 @@ fun CodeInput(value: String, onValueChange: (String) -> Unit) {
         ),
         modifier = Modifier.fillMaxWidth().height(64.dp)
             .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
-            .background(Color(0xFFEAF8DD))
+            .background(PixelTheme.surface)
             .padding(top = 12.dp),
         decorationBox = { innerTextField ->
             Box(contentAlignment = Alignment.Center) {
@@ -128,7 +220,7 @@ fun PixelTextInput(value: String, onValueChange: (String) -> Unit, placeholder: 
         singleLine = true,
         modifier = Modifier.fillMaxWidth().height(58.dp)
             .border(4.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
-            .background(Color(0xFFEAF8DD))
+            .background(PixelTheme.surface)
             .padding(horizontal = 12.dp, vertical = 18.dp),
         decorationBox = { innerTextField ->
             Box(contentAlignment = Alignment.CenterStart) {
@@ -188,16 +280,20 @@ fun BigContactHero(contact: ContactInfo, label: String) {
 fun ContactButton(contact: ContactInfo, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val color = parseColor(contact.colorKey)
     Column(
-        modifier = modifier.aspectRatio(1f).pixelSurface()
-            .clickable(onClick = onClick).padding(10.dp),
+        modifier = modifier.aspectRatio(1f)
+            .alpha(if (contact.enabled) 1f else 0.42f)
+            .pixelSurface()
+            .clickable(enabled = contact.enabled, onClick = onClick).padding(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         PixelAvatar(name = contact.displayName, color = color, size = 54)
         Spacer(modifier = Modifier.height(10.dp))
         Text(
-            text = contact.displayName, color = PixelTheme.fg, fontSize = 18.sp,
-            fontWeight = FontWeight.Black, maxLines = 1,
+            text = if (contact.enabled) contact.displayName else "${contact.displayName}\nPENDENTE",
+            color = PixelTheme.fg,
+            fontSize = if (contact.enabled) 18.sp else 14.sp,
+            fontWeight = FontWeight.Black, maxLines = 2,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -207,7 +303,7 @@ fun ContactButton(contact: ContactInfo, onClick: () -> Unit, modifier: Modifier 
 @Composable
 fun ContactGrid(contacts: List<ContactInfo>, onCall: (ContactInfo) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        contacts.filter { it.enabled }.chunked(2).forEach { rowContacts ->
+        contacts.chunked(2).forEach { rowContacts ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -231,22 +327,27 @@ fun TelefoninhoFrame(
         modifier = Modifier.fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(PixelTheme.bg, Color(0xFFEAF7D8), Color(0xFFD8ECFF)),
+                    listOf(PixelTheme.bg, PixelTheme.gradientMid, PixelTheme.gradientEnd),
                 ),
             ).padding(18.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxSize()
                 .shadow(0.dp)
                 .border(5.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
                 .background(PixelTheme.panel)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            content()
-            Spacer(modifier = Modifier.height(18.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                content = content,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             StatusBar8Bit(status = status, statusKind = statusKind)
         }
     }
@@ -263,7 +364,7 @@ fun StatusBar8Bit(status: String, statusKind: CallStatus) {
     Row(
         modifier = Modifier.fillMaxWidth().height(42.dp)
             .border(3.dp, PixelTheme.fg, RoundedCornerShape(0.dp))
-            .background(Color(0xFFEAF8DD))
+            .background(PixelTheme.surface)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

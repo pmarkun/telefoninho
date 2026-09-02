@@ -10,10 +10,12 @@ services:
       - "80:80"
       - "443:443"
     environment:
+      - SITE_DOMAIN=${SITE_DOMAIN:-telefoninho.com.br}
       - APP_DOMAIN=${APP_DOMAIN}
       - API_DOMAIN=${API_DOMAIN}
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/caddy/site:/srv/site:ro
       - caddy-data:/data
       - caddy-config:/config
 
@@ -30,6 +32,10 @@ services:
       - API_BASE_URL=https://${API_DOMAIN}
       - ASTERISK_HOST=${SIP_DOMAIN}
       - ASTERISK_PJSIP_PORT=5060
+      - ASTERISK_AMI_HOST=asterisk
+      - ASTERISK_AMI_PORT=5038
+      - ASTERISK_AMI_USERNAME=${ASTERISK_AMI_USERNAME:-telefoninho-api}
+      - ASTERISK_AMI_PASSWORD=${ASTERISK_AMI_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - PAIRING_CODE_TTL_MINUTES=${PAIRING_CODE_TTL_MINUTES:-20}
       - SEED_DEMO=${SEED_DEMO:-false}
@@ -59,6 +65,9 @@ services:
     build: ./infra/asterisk
     container_name: telefoninho-asterisk
     restart: unless-stopped
+    environment:
+      - ASTERISK_AMI_USERNAME=${ASTERISK_AMI_USERNAME:-telefoninho-api}
+      - ASTERISK_AMI_PASSWORD=${ASTERISK_AMI_PASSWORD}
     ports:
       - "5060:5060/udp"
       - "10000-10100:10000-10100/udp"
@@ -69,4 +78,3 @@ volumes:
   api-data:
   caddy-data:
   caddy-config:
-
