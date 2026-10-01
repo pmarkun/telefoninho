@@ -11,6 +11,7 @@ node_modules/
 *.tsbuildinfo
 *.db-shm
 *.db-wal
+*.db.before-beta-*.db
 services/api/dev.db
 services/api/dist
 services/api/node_modules

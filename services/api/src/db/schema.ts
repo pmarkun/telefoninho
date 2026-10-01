@@ -7,6 +7,9 @@ export const parentUsers = sqliteTable("parent_user", {
   displayName: text("display_name").notNull(),
   role: text("role").notNull().default("responsible"),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
+  authVersion: integer("auth_version").notNull().default(0),
+  emailVerifiedAt: integer("email_verified_at", { mode: "timestamp" }),
+  policyVersion: text("policy_version"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
@@ -37,6 +40,7 @@ export const familyMembers = sqliteTable("family_member", {
   avatarKey: text("avatar_key").notNull().default("star_pixel_01"),
   colorKey: text("color_key").notNull().default("green"),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
+  tokenVersion: integer("token_version").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
@@ -80,6 +84,7 @@ export const pairingCodes = sqliteTable("pairing_code", {
   code: text("code").notNull().unique(),
   expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
   claimedAt: integer("claimed_at", { mode: "timestamp" }),
+  revokedAt: integer("revoked_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
@@ -131,8 +136,46 @@ export const shortMessages = sqliteTable("short_message", {
 export const asteriskConfigState = sqliteTable("asterisk_config_state", {
   id: text("id").primaryKey(),
   pending: integer("pending", { mode: "boolean" }).notNull().default(false),
+  revision: integer("revision").notNull().default(0),
   lastGeneratedAt: integer("last_generated_at", { mode: "timestamp" }),
   lastAppliedAt: integer("last_applied_at", { mode: "timestamp" }),
   lastError: text("last_error"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const accessLinks = sqliteTable("access_link", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull().unique(),
+  purpose: text("purpose").notNull(),
+  email: text("email").notNull(),
+  familyId: text("family_id").references(() => families.id),
+  createdBy: text("created_by").references(() => parentUsers.id),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  usedAt: integer("used_at", { mode: "timestamp" }),
+  revokedAt: integer("revoked_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export const emailOutbox = sqliteTable("email_outbox", {
+  id: text("id").primaryKey(),
+  linkId: text("link_id").notNull().references(() => accessLinks.id),
+  encryptedPayload: text("encrypted_payload").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: integer("next_attempt_at", { mode: "timestamp" }).notNull(),
+  sentAt: integer("sent_at", { mode: "timestamp" }),
+  lastError: text("last_error"),
+});
+
+export const familySetups = sqliteTable("family_setup", {
+  familyId: text("family_id").primaryKey().references(() => families.id),
+  childId: text("child_id").notNull().references(() => familyMembers.id),
+  adultId: text("adult_id").notNull().references(() => familyMembers.id),
+  firstCallConfirmedAt: integer("first_call_confirmed_at", { mode: "timestamp" }),
+});
+
+export const memberDevices = sqliteTable("member_device", {
+  memberId: text("member_id").primaryKey().references(() => familyMembers.id),
+  deviceId: text("device_id").notNull(),
+  deviceName: text("device_name").notNull(),
+  pairedAt: integer("paired_at", { mode: "timestamp" }).notNull(),
 });

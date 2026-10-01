@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { asteriskConfigState, db } from "./db/index.js";
 
 const ASTERISK_CONFIG_STATE_ID = "default";
@@ -55,6 +55,7 @@ export function markAsteriskConfigPending(): void {
   db.update(asteriskConfigState)
     .set({
       pending: true,
+      revision: sql`${asteriskConfigState.revision} + 1`,
       lastError: null,
       updatedAt: new Date(),
     })

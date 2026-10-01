@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push --force",
+    "db:migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed.ts",
     "generate:asterisk": "tsx scripts/generate-asterisk.ts",
     "test": "vitest run",

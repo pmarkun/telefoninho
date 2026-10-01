@@ -1,22 +1,20 @@
+import { reconcileAsterisk } from "../asterisk-worker.js";
 import { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { db, families, familyMembers, sipAccounts, callLogs } from "../db/index.js";
 import { generateSipPassword, hashSipPassword } from "../sip-auth.js";
-import { generateAsteriskConfig } from "../asterisk-config.js";
-import { reloadAsterisk } from "../asterisk-ami.js";
 import {
   getAsteriskConfigStatus,
-  markAsteriskConfigApplied,
-  markAsteriskConfigError,
   markAsteriskConfigPending,
 } from "../asterisk-config-state.js";
-import { hasFamilyAccess, requireMemberAccess, requireParent } from "../auth-context.js";
+import { hasFamilyAccess, requireAdmin, requireMemberAccess, requireParent } from "../auth-context.js";
 
 export function registerAdminRoutes(server: FastifyInstance): void {
   server.get("/admin/stats", async (req, reply) => {
     const parent = requireParent(req, reply);
     if (!parent) return reply;
     const familyId = (req.query as { familyId?: string }).familyId;
+    if (parent.role !== "admin" && !familyId) return reply.status(400).send({ error: "familyId is required" });
     if (familyId && !hasFamilyAccess(parent, familyId)) {
       return reply.status(403).send({ error: "Family access denied" });
     }
@@ -47,29 +45,16 @@ export function registerAdminRoutes(server: FastifyInstance): void {
   });
 
   server.get("/admin/asterisk/status", async (req, reply) => {
-    if (!requireParent(req, reply)) return reply;
+    if (!requireAdmin(req, reply)) return reply;
     return getAsteriskConfigStatus();
   });
 
   server.post("/admin/asterisk/regenerate", async (req, reply) => {
-    if (!requireParent(req, reply)) return reply;
-    let generatedAt: Date | null = null;
+    if (!requireAdmin(req, reply)) return reply;
     try {
-      const generation = generateAsteriskConfig();
-      generatedAt = generation.generatedAt;
-      await reloadAsterisk();
-
-      const appliedAt = new Date();
-      markAsteriskConfigApplied(generation.generatedAt, appliedAt);
-      return {
-        ok: true,
-        generatedAccounts: generation.generatedAccounts,
-        appliedAt: appliedAt.toISOString(),
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro ao regenerar config VoIP";
-      markAsteriskConfigError(message, generatedAt);
-      return reply.status(500).send({ error: message });
+      return await reconcileAsterisk(true);
+    } catch {
+      return reply.status(500).send({ error: "Não foi possível preparar a telefonia. Nova tentativa automática em breve." });
     }
   });
 

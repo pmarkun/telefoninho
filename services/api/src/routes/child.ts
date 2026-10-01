@@ -1,41 +1,17 @@
 import { FastifyInstance } from "fastify";
-import crypto from "node:crypto";
+import { requireAuth } from "../auth-context.js";
 import { eq } from "drizzle-orm";
 import { db, familyMembers, sipAccounts, allowedCalls } from "../db/index.js";
 
-const DEV_JWT_SECRET = process.env.JWT_SECRET || "change-me-dev";
-
-function verifyToken(token: string): { sub: string } | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const body = JSON.parse(Buffer.from(parts[1], "base64url").toString());
-    const expectedSig = crypto
-      .createHmac("sha256", DEV_JWT_SECRET)
-      .update(`${parts[0]}.${parts[1]}`)
-      .digest("base64url");
-    if (parts[2] !== expectedSig) return null;
-    return { sub: body.sub };
-  } catch {
-    return null;
-  }
-}
-
 export function registerChildRoutes(server: FastifyInstance): void {
   server.get("/child/config", async (req, reply) => {
-    const auth = req.headers.authorization;
-    if (!auth || !auth.startsWith("Bearer ")) {
-      return reply.status(401).send({ error: "Missing authorization" });
-    }
-
-    const payload = verifyToken(auth.slice(7));
-    if (!payload) {
-      return reply.status(401).send({ error: "Invalid token" });
-    }
+    const access = requireAuth(req, reply);
+    if (!access) return reply;
+    if (access.kind !== "child") return reply.status(403).send({ error: "Device authorization required" });
 
     const member = db.select()
       .from(familyMembers)
-      .where(eq(familyMembers.id, payload.sub))
+      .where(eq(familyMembers.id, access.memberId))
       .get();
     if (!member) {
       return reply.status(404).send({ error: "Member not found" });

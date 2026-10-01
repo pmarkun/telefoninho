@@ -40,6 +40,7 @@ beforeAll(async () => {
     "0002_asterisk_config_state.sql",
     "0003_multi_family_access.sql",
     "0004_short_messages.sql",
+    "0005_beta_access.sql",
   ]) applyMigration(`drizzle/${migration}`);
   apiDb = await import("../db/index.js");
   registerMessageRoutes = (await import("../routes/messages.js")).registerMessageRoutes;
@@ -49,6 +50,8 @@ beforeAll(async () => {
 beforeEach(() => {
   apiDb.db.delete(apiDb.shortMessages).run();
   apiDb.db.delete(apiDb.allowedCalls).run();
+  apiDb.db.delete(apiDb.familySetups).run();
+  apiDb.db.delete(apiDb.memberDevices).run();
   apiDb.db.delete(apiDb.familyMembers).run();
   apiDb.db.delete(apiDb.families).run();
 

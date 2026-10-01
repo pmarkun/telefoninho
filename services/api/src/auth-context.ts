@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+import { and, eq, sql } from "drizzle-orm";
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
   allowedCalls,
@@ -15,12 +16,8 @@ const DEV_JWT_SECRET = process.env.JWT_SECRET || "change-me-dev";
 
 export type ParentRole = "admin" | "responsible";
 
-export type TokenPayload = {
-  sub: string;
-  email?: string;
-  kind?: string;
-  role?: ParentRole;
-};
+const tokenPayloadSchema = z.object({ sub: z.string().min(1), email: z.string().optional(), kind: z.enum(["parent", "child", "adult"]).optional(), role: z.enum(["admin", "responsible"]).optional(), exp: z.number().optional(), v: z.union([z.number(), z.string()]).optional() });
+export type TokenPayload = z.infer<typeof tokenPayloadSchema>;
 
 export type ParentAuthContext = {
   kind: "parent";
@@ -38,7 +35,10 @@ export type AuthContext = ParentAuthContext | ChildAuthContext;
 
 export function signToken(payload: Record<string, string>): string {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const claims = payload.kind === "parent"
+    ? { ...payload, exp: Math.floor(Date.now() / 1000) + 43200, v: Number(payload.v || 0) }
+    : payload;
+  const body = Buffer.from(JSON.stringify(claims)).toString("base64url");
   const signature = crypto
     .createHmac("sha256", DEV_JWT_SECRET)
     .update(`${header}.${body}`)
@@ -47,19 +47,39 @@ export function signToken(payload: Record<string, string>): string {
 }
 
 export function hashPassword(value: string): string {
-  return crypto.createHash("sha256").update(value).digest("hex");
+  const salt = crypto.randomBytes(16).toString("hex");
+  return `scrypt:${salt}:${crypto.scryptSync(value, salt, 64).toString("hex")}`;
+}
+
+export function checkPassword(value: string, hash: string): boolean {
+  const [algorithm, salt, digest] = hash.split(":");
+  const actual = algorithm === "scrypt" && salt && digest
+    ? crypto.scryptSync(value, salt, 64)
+    : crypto.createHash("sha256").update(value).digest();
+  const expected = Buffer.from(algorithm === "scrypt" ? digest || "" : hash, "hex");
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+
+export function findParentByEmail(email: string) {
+  return db.select().from(parentUsers).where(eq(sql<string>`lower(${parentUsers.email})`, email.trim().toLowerCase())).get();
 }
 
 export function verifyToken(token: string): TokenPayload | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-    const body = JSON.parse(Buffer.from(parts[1], "base64url").toString()) as TokenPayload;
+    const header = z.object({ alg: z.literal("HS256"), typ: z.literal("JWT") }).parse(JSON.parse(Buffer.from(parts[0], "base64url").toString()));
+    if (!header) return null;
+    const body = tokenPayloadSchema.parse(JSON.parse(Buffer.from(parts[1], "base64url").toString()));
     const expectedSig = crypto
       .createHmac("sha256", DEV_JWT_SECRET)
       .update(`${parts[0]}.${parts[1]}`)
       .digest("base64url");
-    if (parts[2] !== expectedSig) return null;
+    const supplied = Buffer.from(parts[2]);
+    const expected = Buffer.from(expectedSig);
+    if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return null;
+    if (typeof body.sub !== "string" || !body.sub) return null;
+    if ((!body.kind || body.kind === "parent") && (typeof body.exp !== "number" || body.exp <= Date.now() / 1000)) return null;
     return body;
   } catch {
     return null;
@@ -67,6 +87,8 @@ export function verifyToken(token: string): TokenPayload | null {
 }
 
 export function getBearerPayload(req: FastifyRequest): TokenPayload | null {
+  const cookie = req.headers.cookie?.split(";").map((part) => part.trim()).find((part) => part.startsWith("telefoninho_session="));
+  if (cookie) return verifyToken(cookie.slice("telefoninho_session=".length));
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) return null;
   return verifyToken(auth.slice(7));
@@ -80,6 +102,15 @@ export function requireAuth(req: FastifyRequest, reply: FastifyReply): AuthConte
   }
 
   if (payload.kind && payload.kind !== "parent") {
+    if (payload.kind !== "child" && payload.kind !== "adult") {
+      reply.status(401).send({ error: "Invalid authorization" });
+      return null;
+    }
+    const member = db.select().from(familyMembers).where(and(eq(familyMembers.id, payload.sub), eq(familyMembers.active, true))).get();
+    if (!member || !getActiveFamily(member.familyId) || Number(payload.v || 0) !== member.tokenVersion) {
+      reply.status(401).send({ error: "Aparelho não autorizado. Faça o pareamento novamente." });
+      return null;
+    }
     return { kind: "child", memberId: payload.sub };
   }
 
@@ -89,6 +120,10 @@ export function requireAuth(req: FastifyRequest, reply: FastifyReply): AuthConte
     .get();
   if (!user) {
     reply.status(401).send({ error: "Invalid authorization" });
+    return null;
+  }
+  if (Number(payload.v || 0) !== user.authVersion) {
+    reply.status(401).send({ error: "Sessão expirada. Entre novamente." });
     return null;
   }
 

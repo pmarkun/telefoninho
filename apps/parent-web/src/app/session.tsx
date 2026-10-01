@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-export const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+export const API = "/api";
 export const ACTIVE_FAMILY_KEY = "activeFamilyId";
 
 export type Family = {
@@ -20,10 +20,10 @@ export type SessionInfo = {
 };
 
 export function getSession(): SessionInfo | null {
-  const token = localStorage.getItem("token");
-  if (!token) return null;
+  localStorage.removeItem("token");
+  if (!localStorage.getItem("sessionPresent")) return null;
   return {
-    token,
+    token: "cookie",
     parentName: localStorage.getItem("parentName") || "",
     parentRole: (localStorage.getItem("parentRole") === "admin" ? "admin" : "responsible"),
   };
@@ -33,6 +33,7 @@ export async function loadFamilies(token: string): Promise<Family[]> {
   const res = await fetch(`${API}/families`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  if (res.status === 401) { localStorage.removeItem("sessionPresent"); window.location.assign("/login"); }
   if (!res.ok) throw new Error("Erro ao carregar famílias");
   return res.json();
 }
@@ -66,6 +67,8 @@ export function NavBar({
     <nav className="nav">
       <a href="/dashboard" className="brand">Telefoninho</a>
       <a href="/dashboard">Dashboard</a>
+      <a href="/primeiros-passos">Primeiros passos</a>
+      {parentRole === "admin" && <a href="/beta">Beta</a>}
       <a href="/families">Famílias</a>
       <a href="/members">Membros</a>
       <a href="/permissions">Permissões</a>
@@ -90,8 +93,11 @@ export function NavBar({
         href="/login"
         onClick={(e) => {
           e.preventDefault();
-          localStorage.clear();
-          router.push("/login");
+          void fetch(`${API}/auth/logout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then(() => {
+            localStorage.removeItem("sessionPresent");
+            localStorage.removeItem(ACTIVE_FAMILY_KEY);
+            router.push("/login");
+          });
         }}
       >
         Sair
