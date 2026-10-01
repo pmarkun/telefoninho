@@ -3,90 +3,97 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Telefoninho</title>
-    <meta name="description" content="Telefoninho, um telefone simples para familias." />
-    <style>
-      :root {
-        color-scheme: light;
-        --bg: #f7f1df;
-        --ink: #25251f;
-        --muted: #68665e;
-        --line: #d7cfb8;
-        --accent: #2f7d54;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: var(--bg);
-        color: var(--ink);
-        font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-      }
-
-      main {
-        width: min(100% - 2rem, 560px);
-        padding: 2rem 0;
-      }
-
-      .mark {
-        width: 3rem;
-        height: 3rem;
-        margin-bottom: 2rem;
-        border: 4px solid var(--ink);
-        box-shadow: 8px 8px 0 var(--accent);
-        background: #fffdf6;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: clamp(2.5rem, 11vw, 5.5rem);
-        line-height: 0.9;
-        letter-spacing: 0;
-      }
-
-      p {
-        max-width: 32rem;
-        margin: 1.25rem 0 0;
-        color: var(--muted);
-        font-size: 1rem;
-      }
-
-      .links {
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-        margin-top: 2rem;
-        padding-top: 1.5rem;
-        border-top: 2px solid var(--line);
-      }
-
-      a {
-        color: var(--accent);
-        text-decoration: none;
-        font-weight: 700;
-      }
-
-      a:hover {
-        text-decoration: underline;
-      }
-    </style>
+    <meta name="theme-color" content="#b7e36c" />
+    <title>Telefoninho — um telefone para conversar</title>
+    <meta name="description" content="Um telefone infantil com contatos escolhidos pela família. Conheça o app Android e a possibilidade de um Telefoninho físico, sem tela." />
+    <link rel="icon" href="/assets/icon.png" type="image/png" />
+    <link rel="stylesheet" href="/assets/site.css" />
   </head>
   <body>
+    <a class="skip-link" href="#projeto">Pular para o conteúdo</a>
+    <header class="site-header wrap">
+      <a class="brand" href="#projeto" aria-label="Telefoninho, início">
+        <img src="/assets/icon.png" width="48" height="48" alt="" />
+        <span>Telefoninho</span>
+      </a>
+      <nav aria-label="Navegação principal">
+        <a href="#projeto">O projeto</a>
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#sem-tela">Sem tela</a>
+      </nav>
+      <a class="button header-button" href="https://admin.telefoninho.com.br/login">Painel da família</a>
+    </header>
     <main>
-      <div class="mark" aria-hidden="true"></div>
-      <h1>Telefoninho</h1>
-      <p>Um telefone simples para familias. Site em construcao.</p>
-      <div class="links">
-        <a href="https://admin.telefoninho.com.br">admin</a>
-        <a href="https://api.telefoninho.com.br/health">api status</a>
-        <a href="/privacy.html">privacidade</a>
-      </div>
+      <section class="hero wrap" id="projeto" aria-labelledby="project-title">
+        <div class="hero-copy">
+          <h1 id="project-title">Um telefone<br />para conversar.</h1>
+          <p>O Telefoninho é um telefone infantil com contatos escolhidos pela família. A criança liga. Quem cuida organiza.</p>
+          <div class="actions">
+            <a class="button primary" href="#como-funciona">Como funciona</a>
+            <a class="button" href="#sem-tela">Conhecer a ideia física</a>
+          </div>
+        </div>
+        <figure class="hero-figure">
+          <div class="phone-stage">
+            <img class="phone-art" src="/assets/telefoninho-physical.webp" width="800" height="533" alt="Ilustração em pixel de uma ideia de Telefoninho físico: fone, quatro botões de contato e alto-falante, sem tela." fetchpriority="high" />
+          </div>
+          <figcaption>Uma ideia que pode sair da tela.</figcaption>
+        </figure>
+      </section>
+      <section class="how-section" id="como-funciona" aria-labelledby="how-title">
+        <div class="wrap">
+          <h2 id="how-title">A conversa começa por aqui.</h2>
+          <ol class="steps">
+            <li>
+              <span class="step-number" aria-hidden="true">01</span>
+              <h3>Família escolhe<br /> os contatos.</h3>
+              <p>No painel, os responsáveis organizam os contatos e definem quem pode ligar para quem.</p>
+            </li>
+            <li>
+              <span class="step-number" aria-hidden="true">02</span>
+              <h3>Criança usa<br /> o Telefoninho.</h3>
+              <p>Hoje, o Telefoninho é um app Android. A família conecta o aparelho por um código, e a criança usa uma agenda simples para ligar.</p>
+            </li>
+            <li>
+              <span class="step-number" aria-hidden="true">03</span>
+              <h3>A ligação acontece<br /> pela internet.</h3>
+              <p>As chamadas são de voz, com os contatos autorizados. Os aparelhos precisam estar conectados à internet para conversar.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+      <section class="physical-section" id="sem-tela" aria-labelledby="physical-title">
+        <div class="physical-rail" aria-hidden="true"><span>03</span><i></i><p>UMA IDEIA<br /> MAIS LONGE</p></div>
+        <div class="physical-content">
+          <div>
+            <h2 id="physical-title">E se o telefoninho<br />não tivesse tela?</h2>
+            <p>Uma possibilidade é levar a mesma ideia para um aparelho físico: botões para os contatos, microfone, alto-falante e Wi-Fi. Pegar o fone, escolher uma pessoa, conversar.</p>
+            <p>A família continuaria organizando os contatos pelo painel. A criança usaria o telefone sem precisar de uma tela.</p>
+            <p class="physical-note">Possibilidade em estudo. O projeto hoje funciona como app Android.</p>
+          </div>
+          <figure class="hardware-sketch">
+            <svg viewBox="0 0 220 190" role="img" aria-label="Esquema conceitual de um telefone com quatro botões, sem tela" shape-rendering="crispEdges">
+              <g fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="miter">
+                <path d="M42 62V26H54V14H164V26H178V62H150V46H70V62Z" />
+                <path d="M50 72H166L184 166H30Z" />
+                <path d="M66 82H96V108H62Z M114 82H144L148 108H114Z M58 120H96V148H54Z M114 120H152L158 148H114Z" />
+                <path d="M8 44H22 M198 44H212 M16 22L26 32 M194 22L184 32" />
+              </g>
+            </svg>
+            <figcaption>Um esboço de como poderia ser.</figcaption>
+          </figure>
+        </div>
+      </section>
     </main>
+    <footer class="site-footer">
+      <div class="wrap footer-inner">
+        <a class="brand" href="#projeto"><img src="/assets/icon.png" width="36" height="36" alt="" /><span>Telefoninho</span></a>
+        <nav aria-label="Links do projeto">
+          <a href="/privacy.html">Privacidade</a>
+          <a href="https://github.com/pmarkun/telefoninho">Código do projeto</a>
+          <a class="button" href="https://admin.telefoninho.com.br/login">Painel da família</a>
+        </nav>
+      </div>
+    </footer>
   </body>
 </html>
