@@ -17,6 +17,9 @@ importers:
 
   apps/parent-web:
     dependencies:
+      '@telefoninho/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@zxing/browser':
         specifier: ^0.1.5
         version: 0.1.5(@zxing/library@0.21.3)

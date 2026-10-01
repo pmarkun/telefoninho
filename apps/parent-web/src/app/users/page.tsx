@@ -32,8 +32,6 @@ export default function UsersPage() {
   const [activeFamily, setActiveFamily] = useState<Family | null>(null);
   const [responsibles, setResponsibles] = useState<Responsible[]>([]);
   const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [password, setPassword] = useState("");
 
   useEffect(() => {
     const session = getSession();
@@ -75,18 +73,16 @@ export default function UsersPage() {
 
   async function addResponsible() {
     if (!activeFamily) return;
-    if (!email.trim() || !displayName.trim()) {
-      notify("Informe nome e email", "error");
+    if (!email.trim()) {
+      notify("Informe o e-mail", "error");
       return;
     }
     try {
-      const res = await fetch(`${API}/families/${activeFamily.id}/responsibles`, {
+      const res = await fetch(`${API}/families/${activeFamily.id}/responsible-invitations`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           email: email.trim(),
-          displayName: displayName.trim(),
-          password: password || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -95,9 +91,7 @@ export default function UsersPage() {
         return;
       }
       setEmail("");
-      setDisplayName("");
-      setPassword("");
-      notify("Responsável adicionado", "success");
+      notify("Convite colocado na fila de envio. O responsável cria ou acessa a própria conta.", "success");
       await reload(token, activeFamily.id);
     } catch {
       notify("Erro ao adicionar responsável", "error");
@@ -152,22 +146,15 @@ export default function UsersPage() {
         <h1>Usuários{activeFamily ? ` · ${activeFamily.name}` : ""}</h1>
 
         <div className="card">
-          <h2>Novo responsável</h2>
-          <div className="grid-3">
-            <div className="form-group">
-              <label>Nome</label>
-              <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-            </div>
+          <h2>Convidar responsável</h2>
+          <p>Envie um convite para aceitar o vínculo. Cada pessoa mantém sua própria conta e senha.</p>
+          <div>
             <div className="form-group">
               <label>Email</label>
               <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
             </div>
-            <div className="form-group">
-              <label>Senha</label>
-              <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-            </div>
           </div>
-          <button className="primary" onClick={addResponsible} disabled={!activeFamily}>Adicionar</button>
+          <button className="primary" onClick={addResponsible} disabled={!activeFamily}>Enviar convite</button>
         </div>
 
         <div className="card">
@@ -192,9 +179,9 @@ export default function UsersPage() {
                     </td>
                     <td>
                       <div className="button-row">
-                        <button onClick={() => toggleResponsible(responsible)}>
+                        {parentRole === "admin" && <button onClick={() => toggleResponsible(responsible)}>
                           {responsible.active ? "Desativar" : "Ativar"}
-                        </button>
+                        </button>}
                         <button className="danger" onClick={() => unlinkResponsible(responsible)}>
                           Remover vínculo
                         </button>

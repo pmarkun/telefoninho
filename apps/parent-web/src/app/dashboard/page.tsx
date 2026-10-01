@@ -75,7 +75,7 @@ export default function DashboardPage() {
       if (!statsRes.ok) throw new Error("stats");
       setStats(await statsRes.json());
 
-      await loadAsteriskStatus(t, setAsteriskStatus, notify);
+      if (getSession()?.parentRole === "admin") await loadAsteriskStatus(t, setAsteriskStatus, notify);
     } catch {
       notify("Erro ao carregar dashboard", "error");
     }
@@ -121,6 +121,7 @@ export default function DashboardPage() {
       />
       <div className="container">
         <h1>Dashboard{activeFamily ? ` · ${activeFamily.name}` : ""}</h1>
+        <div className="card"><h2>Preparar o Telefoninho</h2><p>Organize os contatos, pareie os aparelhos e teste a primeira chamada.</p><a href="/primeiros-passos">Continuar os primeiros passos →</a></div>
         <div className="grid-3">
           <div className="card">
             <h3>{stats.families}</h3>
@@ -163,7 +164,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid-2">
+        {parentRole === "admin" && <div className="grid-2">
           <div className="card">
             <h2>Asterisk</h2>
             {asteriskStatus?.pending ? (
@@ -202,7 +203,7 @@ export default function DashboardPage() {
               {API}
             </p>
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   );

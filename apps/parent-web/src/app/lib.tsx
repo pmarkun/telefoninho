@@ -3,9 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNotify } from "./notify-context";
-import { chooseActiveFamily, Family, NavBar, ParentRole, setActiveFamilyId } from "./session";
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+import { API, getSession, chooseActiveFamily, Family, NavBar, ParentRole, setActiveFamilyId } from "./session";
 
 interface Member {
   id: string;
@@ -29,7 +27,7 @@ export function useApi() {
   const router = useRouter();
 
   useEffect(() => {
-    const t = localStorage.getItem("token");
+    const t = getSession()?.token;
     const pn = localStorage.getItem("parentName");
     if (!t) {
       router.push("/login");
