@@ -45,6 +45,12 @@ services:
       - ASTERISK_AMI_USERNAME=${ASTERISK_AMI_USERNAME:-telefoninho-api}
       - ASTERISK_AMI_PASSWORD=${ASTERISK_AMI_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
+      - PARENT_WEB_URL=https://${APP_DOMAIN}
+      - WEB_ORIGINS=https://${APP_DOMAIN}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-}
+      - EMAIL_REPLY_TO=${EMAIL_REPLY_TO:-pedro@markun.com.br}
+      - ANDROID_BETA_DOWNLOAD_URL=${ANDROID_BETA_DOWNLOAD_URL:-}
       - PAIRING_CODE_TTL_MINUTES=${PAIRING_CODE_TTL_MINUTES:-20}
       - SEED_DEMO=${SEED_DEMO:-false}
     expose:
@@ -65,6 +71,7 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_BASE_URL=https://${API_DOMAIN}
+      - API_INTERNAL_URL=http://api:3001
     expose:
       - "3000"
     depends_on:

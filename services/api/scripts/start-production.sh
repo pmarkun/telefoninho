@@ -3,11 +3,10 @@ set -eu
 
 mkdir -p "$(dirname "${DATABASE_URL#file:}")"
 
-pnpm --filter @telefoninho/api db:push
+pnpm --filter @telefoninho/api db:migrate
 
 if [ "${SEED_DEMO:-false}" = "true" ]; then
   pnpm --filter @telefoninho/api seed
 fi
 
 exec pnpm --filter @telefoninho/api start
-

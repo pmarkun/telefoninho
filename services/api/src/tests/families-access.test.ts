@@ -27,7 +27,7 @@ function now(): Date {
 
 function sign(payload: Record<string, string>): string {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + 3600, v: 0 })).toString("base64url");
   const signature = crypto
     .createHmac("sha256", process.env.JWT_SECRET!)
     .update(`${header}.${body}`)
@@ -52,6 +52,7 @@ beforeAll(async () => {
   applyMigration("drizzle/0001_contact_invites.sql");
   applyMigration("drizzle/0002_asterisk_config_state.sql");
   applyMigration("drizzle/0003_multi_family_access.sql");
+  applyMigration("drizzle/0005_beta_access.sql");
   apiDb = await import("../db/index.js");
   const familyRoutes = await import("../routes/families.js");
   const memberRoutes = await import("../routes/members.js");
@@ -67,6 +68,8 @@ beforeEach(() => {
   apiDb.db.delete(apiDb.sipAccounts).run();
   apiDb.db.delete(apiDb.familyResponsibles).run();
   apiDb.db.delete(apiDb.parentUsers).run();
+  apiDb.db.delete(apiDb.familySetups).run();
+  apiDb.db.delete(apiDb.memberDevices).run();
   apiDb.db.delete(apiDb.familyMembers).run();
   apiDb.db.delete(apiDb.families).run();
 

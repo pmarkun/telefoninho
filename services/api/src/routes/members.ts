@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import crypto from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { createMemberSchema, updateMemberSchema } from "@telefoninho/shared/validation";
 import {
   allowedCalls,
@@ -11,6 +11,9 @@ import {
   familyMembers,
   pairingCodes,
   sipAccounts,
+  familySetups,
+  memberDevices,
+  shortMessages,
 } from "../db/index.js";
 import { markAsteriskConfigPending } from "../asterisk-config-state.js";
 import { requireFamilyAccess, requireMemberAccess } from "../auth-context.js";
@@ -129,6 +132,9 @@ export function registerMemberRoutes(server: FastifyInstance): void {
       const access = requireMemberAccess(req, reply, req.params.memberId);
       if (!access) return reply;
 
+      db.delete(familySetups).where(or(eq(familySetups.childId, req.params.memberId), eq(familySetups.adultId, req.params.memberId))).run();
+      db.delete(memberDevices).where(eq(memberDevices.memberId, req.params.memberId)).run();
+      db.delete(shortMessages).where(or(eq(shortMessages.fromMemberId, req.params.memberId), eq(shortMessages.toMemberId, req.params.memberId))).run();
       db.delete(sipAccounts).where(eq(sipAccounts.familyMemberId, req.params.memberId)).run();
       db.delete(allowedCalls).where(eq(allowedCalls.fromMemberId, req.params.memberId)).run();
       db.delete(allowedCalls).where(eq(allowedCalls.toMemberId, req.params.memberId)).run();

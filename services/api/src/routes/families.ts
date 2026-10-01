@@ -1,8 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { and, eq } from "drizzle-orm";
-import { createFamilySchema, createResponsibleSchema, updateFamilySchema, updateResponsibleSchema } from "@telefoninho/shared/validation";
+import { createFamilySchema, updateFamilySchema, updateResponsibleSchema } from "@telefoninho/shared/validation";
 import { db, families as familiesTable, familyResponsibles, parentUsers } from "../db/index.js";
-import { cuid, hashPassword, hasFamilyAccess, requireFamilyAccess, requireParent } from "../auth-context.js";
+import { cuid, requireFamilyAccess, requireParent } from "../auth-context.js";
 import { markAsteriskConfigPending } from "../asterisk-config-state.js";
 
 export function registerFamilyRoutes(server: FastifyInstance): void {
@@ -120,58 +120,7 @@ export function registerFamilyRoutes(server: FastifyInstance): void {
 
   server.post<{ Params: { familyId: string } }>("/families/:familyId/responsibles", async (req, reply) => {
     if (!requireFamilyAccess(req, reply, req.params.familyId)) return reply;
-    const input = createResponsibleSchema.parse(req.body);
-    const now = new Date();
-    let user = db.select().from(parentUsers).where(eq(parentUsers.email, input.email)).get();
-
-    if (user) {
-      db.update(parentUsers)
-        .set({
-          displayName: input.displayName,
-          ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
-          role: user.role === "admin" ? "admin" : "responsible",
-          active: true,
-          updatedAt: now,
-        })
-        .where(eq(parentUsers.id, user.id))
-        .run();
-    } else {
-      if (!input.password) {
-        return reply.status(400).send({ error: "Password is required for a new responsible" });
-      }
-      const userId = cuid();
-      db.insert(parentUsers).values({
-        id: userId,
-        email: input.email,
-        passwordHash: hashPassword(input.password),
-        displayName: input.displayName,
-        role: "responsible",
-        active: true,
-        createdAt: now,
-        updatedAt: now,
-      }).run();
-      user = db.select().from(parentUsers).where(eq(parentUsers.id, userId)).get();
-    }
-
-    if (!user) return reply.status(500).send({ error: "Responsible not found" });
-    const existingLink = db.select()
-      .from(familyResponsibles)
-      .where(and(
-        eq(familyResponsibles.familyId, req.params.familyId),
-        eq(familyResponsibles.parentUserId, user.id),
-      ))
-      .get();
-    if (!existingLink) {
-      db.insert(familyResponsibles).values({
-        id: cuid(),
-        familyId: req.params.familyId,
-        parentUserId: user.id,
-        createdAt: now,
-        updatedAt: now,
-      }).run();
-    }
-
-    return db.select().from(parentUsers).where(eq(parentUsers.id, user.id)).get();
+    return reply.status(410).send({ error: "Envie um convite para o responsável aceitar com sua própria conta." });
   });
 
   server.patch<{ Params: { parentUserId: string } }>("/responsibles/:parentUserId", async (req, reply) => {
@@ -179,28 +128,17 @@ export function registerFamilyRoutes(server: FastifyInstance): void {
     if (!parent) return reply;
     const target = db.select().from(parentUsers).where(eq(parentUsers.id, req.params.parentUserId)).get();
     if (!target) return reply.status(404).send({ error: "Responsible not found" });
-    if (target.role === "admin" && parent.role !== "admin") {
-      return reply.status(403).send({ error: "Admin authorization required" });
-    }
-    if (parent.role !== "admin") {
-      const sharedFamily = db.select()
-        .from(familyResponsibles)
-        .where(eq(familyResponsibles.parentUserId, target.id))
-        .all()
-        .some((link) => hasFamilyAccess(parent, link.familyId));
-      if (!sharedFamily) return reply.status(403).send({ error: "Responsible access denied" });
-    }
-
     const input = updateResponsibleSchema.parse(req.body);
-    if (input.role && parent.role !== "admin") {
-      return reply.status(403).send({ error: "Admin authorization required" });
+    if (input.email || input.password) {
+      return reply.status(403).send({ error: "Alterações de acesso exigem verificação pelo próprio titular." });
+    }
+    if (parent.role !== "admin" && (target.id !== parent.userId || input.active !== undefined || input.role !== undefined)) {
+      return reply.status(403).send({ error: "Você só pode editar seu próprio nome. Gerencie o vínculo na família." });
     }
 
     db.update(parentUsers)
       .set({
-        ...(input.email ? { email: input.email } : {}),
         ...(input.displayName ? { displayName: input.displayName } : {}),
-        ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
         ...(input.active !== undefined ? { active: input.active } : {}),
         ...(input.role ? { role: input.role } : {}),
         updatedAt: new Date(),
@@ -208,7 +146,7 @@ export function registerFamilyRoutes(server: FastifyInstance): void {
       .where(eq(parentUsers.id, req.params.parentUserId))
       .run();
 
-    return db.select().from(parentUsers).where(eq(parentUsers.id, req.params.parentUserId)).get();
+    return { id: target.id, displayName: input.displayName || target.displayName, active: input.active ?? target.active, role: input.role || target.role };
   });
 
   server.delete<{ Params: { familyId: string; parentUserId: string } }>(

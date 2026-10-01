@@ -33,6 +33,7 @@ beforeAll(async () => {
   applyMigration("drizzle/0001_contact_invites.sql");
   applyMigration("drizzle/0002_asterisk_config_state.sql");
   applyMigration("drizzle/0003_multi_family_access.sql");
+  applyMigration("drizzle/0005_beta_access.sql");
   apiDb = await import("../db/index.js");
   const routes = await import("../routes/pairing.js");
   registerPairingRoutes = routes.registerPairingRoutes;
@@ -42,6 +43,8 @@ beforeEach(() => {
   apiDb.db.delete(apiDb.allowedCalls).run();
   apiDb.db.delete(apiDb.pairingCodes).run();
   apiDb.db.delete(apiDb.sipAccounts).run();
+  apiDb.db.delete(apiDb.familySetups).run();
+  apiDb.db.delete(apiDb.memberDevices).run();
   apiDb.db.delete(apiDb.familyMembers).run();
   apiDb.db.delete(apiDb.families).run();
 

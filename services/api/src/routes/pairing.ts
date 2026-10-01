@@ -1,12 +1,14 @@
 import { FastifyInstance } from "fastify";
 import crypto from "node:crypto";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { claimPairingSchema } from "@telefoninho/shared/validation";
-import { db, familyMembers, sipAccounts, pairingCodes, allowedCalls } from "../db/index.js";
-import { requireMemberAccess, signToken } from "../auth-context.js";
+import { db, familyMembers, sipAccounts, pairingCodes, allowedCalls, memberDevices } from "../db/index.js";
+import { getActiveFamily, requireMemberAccess, signToken } from "../auth-context.js";
+import { generateSipPassword, hashSipPassword } from "../sip-auth.js";
+import { markAsteriskConfigPending } from "../asterisk-config-state.js";
 
 function generatePairingCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 function cuid(): string {
@@ -26,9 +28,11 @@ export function registerPairingRoutes(server: FastifyInstance): void {
         return reply.status(404).send({ error: "Member not found" });
       }
 
-      const code = generatePairingCode();
+      let code = generatePairingCode();
+      while (db.select().from(pairingCodes).where(eq(pairingCodes.code, code)).get()) code = generatePairingCode();
       const ttlMinutes = Number(process.env.PAIRING_CODE_TTL_MINUTES || "20");
       const now = new Date();
+      db.update(pairingCodes).set({ revokedAt: now }).where(and(eq(pairingCodes.familyMemberId, req.params.memberId), isNull(pairingCodes.claimedAt))).run();
 
       const id = cuid();
       db.insert(pairingCodes).values({
@@ -63,7 +67,7 @@ export function registerPairingRoutes(server: FastifyInstance): void {
       return reply.status(404).send({ error: "Invalid pairing code" });
     }
 
-    if (pairingCode.claimedAt) {
+    if (pairingCode.claimedAt || pairingCode.revokedAt) {
       return reply.status(400).send({ error: "Pairing code already used" });
     }
 
@@ -83,14 +87,26 @@ export function registerPairingRoutes(server: FastifyInstance): void {
       .from(familyMembers)
       .where(eq(familyMembers.id, pairingCode.familyMemberId))
       .get();
-    if (!member) {
+    if (!member || !member.active || !getActiveFamily(member.familyId)) {
       return reply.status(500).send({ error: "Member not found" });
     }
 
-    db.update(pairingCodes)
-      .set({ claimedAt: new Date() })
-      .where(eq(pairingCodes.id, pairingCode.id))
-      .run();
+    const claimed = db.transaction((tx) => {
+      const claim = tx.update(pairingCodes).set({ claimedAt: new Date() })
+        .where(and(eq(pairingCodes.id, pairingCode.id), isNull(pairingCodes.claimedAt), isNull(pairingCodes.revokedAt))).run();
+      if (claim.changes !== 1) return false;
+      tx.update(familyMembers).set({ tokenVersion: member.tokenVersion + 1 }).where(eq(familyMembers.id, member.id)).run();
+      if (tx.select().from(memberDevices).where(eq(memberDevices.memberId, member.id)).get()) {
+        const password = generateSipPassword();
+        tx.update(sipAccounts).set({ plaintextPassword: password, passwordHashOrEncrypted: hashSipPassword(password) }).where(eq(sipAccounts.id, sipAccount.id)).run();
+        sipAccount.plaintextPassword = password;
+        markAsteriskConfigPending();
+      }
+      tx.insert(memberDevices).values({ memberId: member.id, deviceId: input.deviceId, deviceName: input.deviceName, pairedAt: new Date() })
+        .onConflictDoUpdate({ target: memberDevices.memberId, set: { deviceId: input.deviceId, deviceName: input.deviceName, pairedAt: new Date() } }).run();
+      return true;
+    });
+    if (!claimed) return reply.status(400).send({ error: "Pairing code already used" });
 
     const rules = db.select({
       toMemberId: allowedCalls.toMemberId,
@@ -126,7 +142,7 @@ export function registerPairingRoutes(server: FastifyInstance): void {
       }));
 
     return {
-      token: signToken({ sub: member.id, kind: member.kind }),
+      token: signToken({ sub: member.id, kind: member.kind, v: String(member.tokenVersion + 1) }),
       profile: {
         memberId: member.id,
         displayName: member.displayName,
