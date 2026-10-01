@@ -144,6 +144,20 @@ docker compose --env-file .env.production -f docker-compose.prod.yml run --rm ap
 docker compose --env-file .env.production -f docker-compose.prod.yml exec asterisk reload-asterisk.sh
 ```
 
+## Logs e recuperacao de espaco
+
+O Compose de producao limita os logs a 3 arquivos de 10 MB por servico.
+Para aplicar a rotacao a containers existentes, recrie os servicos com
+`docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build --force-recreate`.
+Isso interrompe brevemente os servicos; nao execute durante uma chamada.
+
+Na VPS, `sudo bash scripts/cleanup-vps-logs.sh` apenas informa os tamanhos.
+Em emergencia, `sudo bash scripts/cleanup-vps-logs.sh --apply` limpa somente
+logs Docker `json-file` acima de 100 MiB dos quatro containers Telefoninho.
+O script para e retoma os containers afetados e preserva as ultimas 200 linhas
+em arquivos privados em `/run` (perdidos no reboot). Nao remove volumes ou bancos.
+Nao e necessario agendar a limpeza: a rotacao Docker limita o crescimento.
+
 ## Backup simples
 
 SQLite fica no volume Docker `telefoninho_api-data`.
@@ -156,4 +170,3 @@ docker cp telefoninho-api:/data/telefoninho.backup.db ./telefoninho.backup.db
 ```
 
 Restauracao deve ser feita com os containers parados para evitar corrupcao do arquivo SQLite.
-

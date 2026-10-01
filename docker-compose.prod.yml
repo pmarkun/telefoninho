@@ -1,7 +1,14 @@
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   caddy:
     image: caddy:2-alpine
     container_name: telefoninho-caddy
+    logging: *bounded-logging
     restart: unless-stopped
     depends_on:
       - api
@@ -24,6 +31,7 @@ services:
       context: .
       dockerfile: services/api/Dockerfile
     container_name: telefoninho-api
+    logging: *bounded-logging
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -52,6 +60,7 @@ services:
       args:
         NEXT_PUBLIC_API_BASE_URL: https://${API_DOMAIN}
     container_name: telefoninho-parent-web
+    logging: *bounded-logging
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -64,6 +73,7 @@ services:
   asterisk:
     build: ./infra/asterisk
     container_name: telefoninho-asterisk
+    logging: *bounded-logging
     restart: unless-stopped
     environment:
       - ASTERISK_AMI_USERNAME=${ASTERISK_AMI_USERNAME:-telefoninho-api}
